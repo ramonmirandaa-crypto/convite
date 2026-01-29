@@ -1,0 +1,201 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@300;400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --gold: #D4AF37;
+  --rose: #C9A9A6;
+  --off-white: #FAF9F6;
+  --graphite: #2C2C2C;
+  --cream: #F5F0E8;
+  --soft-gold: #E8D5A3;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-[#FAF9F6] text-[#2C2C2C] antialiased;
+    font-family: 'Inter', sans-serif;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', serif;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-gradient-to-r from-[#D4AF37] to-[#C9A9A6] text-white px-8 py-3 rounded-full font-medium 
+           transition-all duration-300 hover:shadow-lg hover:scale-105 active:scale-95;
+  }
+  
+  .btn-secondary {
+    @apply border-2 border-[#D4AF37] text-[#D4AF37] px-8 py-3 rounded-full font-medium 
+           transition-all duration-300 hover:bg-[#D4AF37] hover:text-white;
+  }
+  
+  .card-elegant {
+    @apply bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl;
+  }
+  
+  .text-gradient {
+    @apply bg-gradient-to-r from-[#D4AF37] to-[#C9A9A6] bg-clip-text text-transparent;
+  }
+  
+  .section-padding {
+    @apply py-20 px-4 sm:px-6 lg:px-8;
+  }
+  
+  .input-elegant {
+    @apply w-full px-4 py-3 rounded-lg border border-gray-200 bg-white 
+           focus:outline-none focus:ring-2 focus:ring-[#D4AF37] focus:border-transparent
+           transition-all duration-300;
+  }
+  
+  .label-elegant {
+    @apply block text-sm font-medium text-gray-700 mb-2;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #FAF9F6;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #D4AF37, #C9A9A6);
+  border-radius: 4px;
+}
+
+/* Animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(212, 175, 55, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(212, 175, 55, 0.6); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.6s ease-out forwards;
+}
+
+/* Countdown styling */
+.countdown-item {
+  @apply flex flex-col items-center;
+}
+
+.countdown-value {
+  @apply text-4xl md:text-6xl font-bold text-gradient font-serif;
+}
+
+.countdown-label {
+  @apply text-sm text-gray-500 uppercase tracking-wider mt-2;
+}
+
+/* Gift card */
+.gift-card {
+  @apply relative bg-white rounded-2xl overflow-hidden shadow-md transition-all duration-300 hover:shadow-xl hover:-translate-y-1;
+}
+
+.gift-card-image {
+  @apply w-full h-48 object-cover;
+}
+
+.gift-card-content {
+  @apply p-5;
+}
+
+.gift-card-title {
+  @apply text-xl font-serif font-semibold text-[#2C2C2C] mb-2;
+}
+
+.gift-card-price {
+  @apply text-2xl font-bold text-gradient;
+}
+
+/* QR Code styling */
+.qr-code-container {
+  @apply bg-white p-6 rounded-xl shadow-lg;
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+  .countdown-value {
+    @apply text-3xl;
+  }
+  
+  .section-padding {
+    @apply py-12 px-4;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+    --radius: 0.5rem;
+  }
+}
