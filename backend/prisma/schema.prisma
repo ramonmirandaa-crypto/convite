@@ -1,0 +1,113 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Event {
+  id            String   @id @default(uuid())
+  coupleNames   String
+  date          DateTime
+  venue         String
+  venueMapsUrl  String?
+  description   String?  @db.Text
+  pixKey        String?  // Encriptada
+  pixKeyType    String?  // CPF, EMAIL, PHONE, RANDOM
+  mpConfig      Json?    // Configs Mercado Pago
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  gifts         Gift[]
+  guests        Guest[]
+
+  @@map("events")
+}
+
+model Guest {
+  id                   String   @id @default(uuid())
+  eventId              String
+  name                 String
+  email                String
+  phone                String?
+  confirmed            Boolean  @default(false)
+  guestCount           Int      @default(1)
+  dietaryRestrictions  String?
+  suggestedSong        String?
+  qrCodeToken          String   @unique
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  event                Event    @relation(fields: [eventId], references: [id])
+  contributions        Contribution[]
+
+  @@map("guests")
+}
+
+model Gift {
+  id          String   @id @default(uuid())
+  eventId     String
+  title       String
+  description String?
+  imageUrl    String?
+  totalValue  Decimal  @db.Decimal(10, 2)
+  status      String   @default("available") // available, fulfilled, hidden
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  event       Event    @relation(fields: [eventId], references: [id])
+  contributions Contribution[]
+
+  @@map("gifts")
+}
+
+model Contribution {
+  id                String   @id @default(uuid())
+  giftId            String
+  guestId           String?
+  amount            Decimal  @db.Decimal(10, 2)
+  message           String?
+  isAnonymous       Boolean  @default(false)
+
+  // Dados do pagador (LGPD)
+  payerName         String
+  payerEmail        String
+  payerCPF          String   // Hash ou encriptado
+  payerPhone        String?
+
+  // Gateway info
+  paymentMethod     String   // pix, credit_card, boleto
+  paymentStatus     String   @default("pending") // pending, approved, cancelled, refunded
+  gatewayId         String   // ID externo (MP)
+  gatewayResponse   Json?    // Log resposta API
+
+  // Parcelamento
+  installments       Int      @default(1)
+  installmentAmount  Decimal? @db.Decimal(10, 2)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  gift              Gift     @relation(fields: [giftId], references: [id])
+  guest             Guest?   @relation(fields: [guestId], references: [id])
+
+  @@map("contributions")
+}
+
+model ContactMessage {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  subject   String
+  message   String   @db.Text
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@map("contact_messages")
+}
+
