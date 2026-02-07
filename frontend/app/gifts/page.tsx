@@ -1,15 +1,15 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { listGifts, reserveGift, Gift } from '../../lib/api'
+import { listGifts, reserveGift, Gift } from '@/lib/api'
+import { GiftCard } from '@/components/GiftCard'
+import { Button } from '@/components/ui/Button'
+import { FloralDivider } from '@/components/FloralDecoration'
 
 export default function Gifts() {
   const [gifts, setGifts] = useState<Gift[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [reservingId, setReservingId] = useState<string | null>(null)
-  const [reserverName, setReserverName] = useState('')
-  const [reserverEmail, setReserverEmail] = useState('')
 
   useEffect(() => {
     loadGifts()
@@ -26,159 +26,121 @@ export default function Gifts() {
     }
   }
 
-  async function handleReserve(e: React.FormEvent) {
-    e.preventDefault()
-    if (!reservingId) return
-    
-    try {
-      await reserveGift(reservingId, { name: reserverName, email: reserverEmail })
-      setReservingId(null)
-      setReserverName('')
-      setReserverEmail('')
-      await loadGifts()
-      alert('Presente reservado com sucesso!')
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Erro ao reservar presente')
-    }
+  async function handleReserve(id: string, name: string, email: string) {
+    await reserveGift(id, { name, email })
   }
 
-  function formatCurrency(value: number) {
-    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
-  }
+  const availableCount = gifts.filter(g => g.status === 'available').length
+  const fulfilledCount = gifts.filter(g => g.status === 'fulfilled').length
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-8">
-      <div className="max-w-6xl w-full">
-        <h1 className="text-5xl font-bold mb-6 text-primary-600 text-center">
+    <main className="min-h-screen bg-gradient-to-b from-amber-50 via-white to-rose-50">
+      {/* Header */}
+      <section className="pt-16 pb-8 px-4 text-center">
+        <p className="text-rose-500 text-lg tracking-widest uppercase mb-4">
           Lista de Presentes
+        </p>
+        <h1 className="text-4xl sm:text-5xl font-bold text-gray-800 mb-4">
+          Presentes dos Noivos
         </h1>
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          <p className="text-lg text-gray-700 mb-8 text-center">
-            Escolha um presente para nos presentear neste momento especial
-          </p>
+        <FloralDivider />
+        <p className="text-gray-600 max-w-2xl mx-auto">
+          Sua presença é nosso maior presente! Mas se quiser nos presentear, 
+          preparamos uma lista com itens que vão nos ajudar a construir nosso novo lar.
+        </p>
 
+        {/* Stats */}
+        <div className="flex justify-center gap-8 mt-8">
+          <div className="text-center">
+            <p className="text-3xl font-bold text-emerald-500">{availableCount}</p>
+            <p className="text-sm text-gray-600">Disponíveis</p>
+          </div>
+          <div className="text-center">
+            <p className="text-3xl font-bold text-rose-500">{fulfilledCount}</p>
+            <p className="text-sm text-gray-600">Arrecadados</p>
+          </div>
+          <div className="text-center">
+            <p className="text-3xl font-bold text-gray-800">{gifts.length}</p>
+            <p className="text-sm text-gray-600">Total</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Gifts Grid */}
+      <section className="pb-16 px-4">
+        <div className="max-w-6xl mx-auto">
           {loading && (
-            <p className="text-center text-gray-500">Carregando presentes...</p>
-          )}
-
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-center">
-              {error}
+            <div className="flex items-center justify-center py-20">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-rose-500" />
             </div>
           )}
 
-          {/* Modal de Reserva */}
-          {reservingId && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-lg p-6 max-w-md w-full">
-                <h3 className="text-xl font-semibold mb-4">Reservar Presente</h3>
-                <form onSubmit={handleReserve}>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Seu Nome
-                    </label>
-                    <input
-                      type="text"
-                      value={reserverName}
-                      onChange={(e) => setReserverName(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg"
-                      required
-                    />
-                  </div>
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Seu Email
-                    </label>
-                    <input
-                      type="email"
-                      value={reserverEmail}
-                      onChange={(e) => setReserverEmail(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg"
-                      required
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      type="submit"
-                      className="flex-1 bg-primary-500 hover:bg-primary-600 text-white font-bold py-2 px-4 rounded-lg"
-                    >
-                      Confirmar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setReservingId(null)}
-                      className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-2 px-4 rounded-lg"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </form>
+          {error && (
+            <div className="text-center py-20">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
               </div>
+              <p className="text-red-600">{error}</p>
+              <button
+                onClick={loadGifts}
+                className="mt-4 text-rose-500 hover:text-rose-600 font-medium"
+              >
+                Tentar novamente
+              </button>
             </div>
           )}
 
           {!loading && !error && gifts.length === 0 && (
-            <p className="text-center text-gray-500">Nenhum presente cadastrado ainda.</p>
+            <div className="text-center py-20">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                </svg>
+              </div>
+              <p className="text-gray-600">Nenhum presente cadastrado ainda.</p>
+            </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {gifts.map((gift) => (
-              <div
-                key={gift.id}
-                className={`border rounded-lg p-6 ${
-                  gift.status !== 'available'
-                    ? 'border-gray-300 bg-gray-50'
-                    : 'border-primary-200 hover:border-primary-500'
-                }`}
-              >
-                <h3 className="text-xl font-semibold mb-2">{gift.title}</h3>
-                {gift.description && (
-                  <p className="text-sm text-gray-500 mb-2">{gift.description}</p>
-                )}
-                <p className="text-lg text-gray-600 mb-2">{formatCurrency(gift.totalValue)}</p>
-
-                {gift.progress > 0 && (
-                  <div className="mb-3">
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-primary-500 h-2 rounded-full"
-                        style={{ width: `${Math.min(100, gift.progress)}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-gray-500 mt-1">{Math.round(gift.progress)}% arrecadado</p>
-                  </div>
-                )}
-
-                <span
-                  className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${
-                    gift.status === 'fulfilled'
-                      ? 'bg-blue-100 text-blue-700'
-                      : gift.status !== 'available'
-                        ? 'bg-gray-200 text-gray-700'
-                        : 'bg-green-100 text-green-700'
-                  }`}
-                >
-                  {gift.status === 'available' ? 'Disponível' : gift.status === 'fulfilled' ? 'Completo' : 'Reservado'}
-                </span>
-                {gift.status === 'available' && (
-                  <button
-                    onClick={() => setReservingId(gift.id)}
-                    className="w-full mt-4 bg-primary-500 hover:bg-primary-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"
-                  >
-                    Reservar
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
+          {!loading && !error && gifts.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {gifts.map((gift) => (
+                <GiftCard
+                  key={gift.id}
+                  gift={gift}
+                  onReserve={handleReserve}
+                />
+              ))}
+            </div>
+          )}
         </div>
-        <a
-          href="/"
-          className="inline-block mt-8 bg-gray-500 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
-        >
-          Voltar ao Início
-        </a>
-      </div>
+      </section>
+
+      {/* Pix Section */}
+      <section className="py-16 px-4 bg-gradient-to-r from-rose-100 to-amber-100">
+        <div className="max-w-2xl mx-auto text-center">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            Prefere contribuir com PIX?
+          </h2>
+          <p className="text-gray-600 mb-6">
+            Você também pode nos presentear através de uma contribuição via PIX. 
+            Qualquer valor será muito bem-vindo!
+          </p>
+          <Button variant="secondary" icon="💳">
+            Ver Dados Bancários
+          </Button>
+        </div>
+      </section>
+
+      {/* Navigation */}
+      <section className="py-8 px-4 bg-white border-t">
+        <div className="max-w-4xl mx-auto flex justify-center">
+          <Button href="/" variant="ghost" icon="←">
+            Voltar ao Início
+          </Button>
+        </div>
+      </section>
     </main>
   )
 }
