@@ -1,4 +1,5 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+// API interna - usa rotas relativas para Serverless Functions
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || '/api'
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
@@ -18,7 +19,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 export function createRSVP(data: {
   name: string
   email: string
-  phone: string
+  phone?: string
   guestCount: number
   dietaryRestrictions?: string
   message?: string
@@ -31,8 +32,8 @@ export function listGifts() {
   return request<{ gifts: Gift[] }>('/gifts')
 }
 
-export function reserveGift(id: string) {
-  return request(`/gifts/${id}/reserve`, { method: 'POST' })
+export function reserveGift(id: string, data: { name: string; email: string }) {
+  return request(`/gifts/${id}/reserve`, { method: 'POST', body: JSON.stringify(data) })
 }
 
 // Contact
@@ -48,6 +49,19 @@ export function sendContact(data: {
 // Event
 export function getEvent() {
   return request<EventData>('/event')
+}
+
+// Contribution
+export function createContribution(data: {
+  giftId: string
+  amount: number
+  payerName: string
+  payerEmail: string
+  payerCPF: string
+  message?: string
+  isAnonymous?: boolean
+}) {
+  return request('/contributions', { method: 'POST', body: JSON.stringify(data) })
 }
 
 // Types

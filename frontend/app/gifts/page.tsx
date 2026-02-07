@@ -7,6 +7,9 @@ export default function Gifts() {
   const [gifts, setGifts] = useState<Gift[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reservingId, setReservingId] = useState<string | null>(null)
+  const [reserverName, setReserverName] = useState('')
+  const [reserverEmail, setReserverEmail] = useState('')
 
   useEffect(() => {
     loadGifts()
@@ -23,10 +26,17 @@ export default function Gifts() {
     }
   }
 
-  async function handleReserve(id: string) {
+  async function handleReserve(e: React.FormEvent) {
+    e.preventDefault()
+    if (!reservingId) return
+    
     try {
-      await reserveGift(id)
+      await reserveGift(reservingId, { name: reserverName, email: reserverEmail })
+      setReservingId(null)
+      setReserverName('')
+      setReserverEmail('')
       await loadGifts()
+      alert('Presente reservado com sucesso!')
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Erro ao reservar presente')
     }
@@ -54,6 +64,56 @@ export default function Gifts() {
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-center">
               {error}
+            </div>
+          )}
+
+          {/* Modal de Reserva */}
+          {reservingId && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                <h3 className="text-xl font-semibold mb-4">Reservar Presente</h3>
+                <form onSubmit={handleReserve}>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Seu Nome
+                    </label>
+                    <input
+                      type="text"
+                      value={reserverName}
+                      onChange={(e) => setReserverName(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Seu Email
+                    </label>
+                    <input
+                      type="email"
+                      value={reserverEmail}
+                      onChange={(e) => setReserverEmail(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      className="flex-1 bg-primary-500 hover:bg-primary-600 text-white font-bold py-2 px-4 rounded-lg"
+                    >
+                      Confirmar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setReservingId(null)}
+                      className="flex-1 bg-gray-300 hover:bg-gray-400 text-gray-700 font-bold py-2 px-4 rounded-lg"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           )}
 
@@ -102,7 +162,7 @@ export default function Gifts() {
                 </span>
                 {gift.status === 'available' && (
                   <button
-                    onClick={() => handleReserve(gift.id)}
+                    onClick={() => setReservingId(gift.id)}
                     className="w-full mt-4 bg-primary-500 hover:bg-primary-600 text-white font-bold py-2 px-4 rounded-lg transition-colors"
                   >
                     Reservar
