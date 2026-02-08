@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { supabase } from '@/lib/supabase'
 import { getPaymentStatus, processWebhook, mapPaymentStatus } from '@/lib/mercadopago'
 import { decrypt } from '@/lib/crypto'
 import { sendPaymentConfirmationEmail, sendNewContributionNotification } from '@/lib/email'
+
+const isVercel = process.env.VERCEL === '1'
 
 // POST - Receber notificações do Mercado Pago
 export async function POST(request: NextRequest) {
@@ -24,20 +27,39 @@ export async function POST(request: NextRequest) {
     const paymentId = notification.paymentId
 
     // Busca a contribuição pelo gatewayId
-    const contribution = await prisma.contribution.findFirst({
-      where: { gatewayId: paymentId },
-      include: { 
-        gift: true,
-        guest: true
+    let contribution: any
+    
+    if (isVercel) {
+      const { data: contribData, error: contribError } = await supabase
+        .from('contributions')
+        .select('*, gift:gifts(*), guest:guests(*)')
+        .eq('gatewayId', paymentId)
+        .single()
+      
+      if (contribError || !contribData) {
+        console.log(`Contribuição não encontrada para paymentId: ${paymentId}`)
+        return NextResponse.json({ 
+          success: true, 
+          message: 'Pagamento não encontrado no sistema' 
+        })
       }
-    })
-
-    if (!contribution) {
-      console.log(`Contribuição não encontrada para paymentId: ${paymentId}`)
-      return NextResponse.json({ 
-        success: true, 
-        message: 'Pagamento não encontrado no sistema' 
+      contribution = contribData
+    } else {
+      contribution = await prisma.contribution.findFirst({
+        where: { gatewayId: paymentId },
+        include: { 
+          gift: true,
+          guest: true
+        }
       })
+
+      if (!contribution) {
+        console.log(`Contribuição não encontrada para paymentId: ${paymentId}`)
+        return NextResponse.json({ 
+          success: true, 
+          message: 'Pagamento não encontrado no sistema' 
+        })
+      }
     }
 
     // Se já está aprovado, não processa novamente
@@ -52,8 +74,16 @@ export async function POST(request: NextRequest) {
     let mpPayment: any
     try {
       // Busca configurações do evento para obter access token
-      const event = await prisma.event.findFirst()
-      const mpConfig = (event?.mpConfig as any) || {}
+      let mpConfig: any = {}
+      
+      if (isVercel) {
+        const { data: eventData } = await supabase.from('events').select('mpConfig').single()
+        mpConfig = eventData?.mpConfig || {}
+      } else {
+        const event = await prisma.event.findFirst()
+        mpConfig = (event?.mpConfig as any) || {}
+      }
+      
       const accessToken = mpConfig.accessToken 
         ? decrypt(mpConfig.accessToken)
         : undefined
@@ -68,36 +98,81 @@ export async function POST(request: NextRequest) {
     const newStatus = mapPaymentStatus(mpPayment.status || 'pending')
 
     // Atualiza a contribuição
-    const updatedContribution = await prisma.contribution.update({
-      where: { id: contribution.id },
-      data: {
-        paymentStatus: newStatus,
-        gatewayResponse: mpPayment as any,
-      }
-    })
+    let updatedContribution: any
+    
+    if (isVercel) {
+      const { data: updatedData, error: updateError } = await supabase
+        .from('contributions')
+        .update({
+          paymentStatus: newStatus,
+          gatewayResponse: mpPayment as any,
+        })
+        .eq('id', contribution.id)
+        .select()
+        .single()
+      
+      if (updateError) throw updateError
+      updatedContribution = updatedData
+    } else {
+      updatedContribution = await prisma.contribution.update({
+        where: { id: contribution.id },
+        data: {
+          paymentStatus: newStatus,
+          gatewayResponse: mpPayment as any,
+        }
+      })
+    }
 
     // Se foi aprovado, executa ações adicionais
     if (newStatus === 'approved') {
       // 1. Verifica se o presente foi totalmente arrecadado
-      const gift = await prisma.gift.findUnique({
-        where: { id: contribution.giftId },
-        include: {
-          contributions: {
-            where: { paymentStatus: 'approved' }
+      let gift: any
+      let contributions: any[] = []
+      
+      if (isVercel) {
+        const { data: giftData } = await supabase
+          .from('gifts')
+          .select('*')
+          .eq('id', contribution.giftId)
+          .single()
+        
+        const { data: contribData } = await supabase
+          .from('contributions')
+          .select('amount')
+          .eq('giftId', contribution.giftId)
+          .eq('paymentStatus', 'approved')
+        
+        gift = giftData
+        contributions = contribData || []
+      } else {
+        gift = await prisma.gift.findUnique({
+          where: { id: contribution.giftId },
+          include: {
+            contributions: {
+              where: { paymentStatus: 'approved' }
+            }
           }
-        }
-      })
+        })
+        contributions = gift?.contributions || []
+      }
 
       if (gift) {
-        const totalReceived = gift.contributions.reduce((sum, c) => {
+        const totalReceived = contributions.reduce((sum: number, c: any) => {
           return sum + Number(c.amount)
         }, 0)
 
         if (totalReceived >= Number(gift.totalValue)) {
-          await prisma.gift.update({
-            where: { id: gift.id },
-            data: { status: 'fulfilled' }
-          })
+          if (isVercel) {
+            await supabase
+              .from('gifts')
+              .update({ status: 'fulfilled' })
+              .eq('id', gift.id)
+          } else {
+            await prisma.gift.update({
+              where: { id: gift.id },
+              data: { status: 'fulfilled' }
+            })
+          }
           console.log(`Presente ${gift.id} totalmente arrecadado!`)
         }
       }

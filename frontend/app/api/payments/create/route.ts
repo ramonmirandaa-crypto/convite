@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { supabase } from '@/lib/supabase'
 import { createPixPayment, createCardPayment, mapPaymentStatus } from '@/lib/mercadopago'
-import { encrypt } from '@/lib/crypto'
+import { encrypt, decrypt } from '@/lib/crypto'
 import { z } from 'zod'
+
+const isVercel = process.env.VERCEL === '1'
 
 // Schema de validação
 const paymentSchema = z.object({
@@ -71,26 +74,71 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verifica se o presente existe
-    const gift = await prisma.gift.findUnique({
-      where: { id: data.giftId },
-      include: {
-        event: true,
-        contributions: {
-          where: { paymentStatus: 'approved' }
-        }
+    // Verifica se o presente existe e busca configurações
+    let gift: any
+    let event: any
+    let contributions: any[] = []
+    
+    if (isVercel) {
+      // Usa Supabase na Vercel
+      const { data: giftData, error: giftError } = await supabase
+        .from('gifts')
+        .select('*')
+        .eq('id', data.giftId)
+        .single()
+      
+      if (giftError || !giftData) {
+        return NextResponse.json(
+          { error: 'Presente não encontrado' },
+          { status: 404 }
+        )
       }
-    })
+      gift = giftData
 
-    if (!gift) {
-      return NextResponse.json(
-        { error: 'Presente não encontrado' },
-        { status: 404 }
-      )
+      // Busca evento para configurações do MP
+      const { data: eventData, error: eventError } = await supabase
+        .from('events')
+        .select('mpConfig')
+        .single()
+      
+      if (eventError) throw eventError
+      event = eventData
+
+      // Busca contribuições aprovadas
+      const { data: contribData, error: contribError } = await supabase
+        .from('contributions')
+        .select('amount')
+        .eq('giftId', data.giftId)
+        .eq('paymentStatus', 'approved')
+      
+      if (!contribError && contribData) {
+        contributions = contribData
+      }
+    } else {
+      // Usa Prisma localmente
+      const giftData = await prisma.gift.findUnique({
+        where: { id: data.giftId },
+        include: {
+          event: true,
+          contributions: {
+            where: { paymentStatus: 'approved' }
+          }
+        }
+      })
+
+      if (!giftData) {
+        return NextResponse.json(
+          { error: 'Presente não encontrado' },
+          { status: 404 }
+        )
+      }
+      gift = giftData
+      event = giftData.event
+      contributions = giftData.contributions
     }
 
     // Calcula valor restante
-    const totalReceived = gift.contributions.reduce((sum, c) => {
+    const totalReceived = contributions.reduce((sum: number, c: any) => {
       return sum + Number(c.amount)
     }, 0)
     const remaining = Number(gift.totalValue) - totalReceived
@@ -110,28 +158,61 @@ export async function POST(request: NextRequest) {
     }
 
     // Busca configurações do Mercado Pago
-    const mpConfig = (gift.event.mpConfig as any) || {}
-    const accessToken = mpConfig.accessToken 
-      ? await import('@/lib/crypto').then(m => m.decrypt(mpConfig.accessToken))
-      : undefined
+    const mpConfig = (event?.mpConfig as any) || {}
+    let accessToken: string | undefined
+    
+    if (mpConfig.accessToken) {
+      try {
+        accessToken = decrypt(mpConfig.accessToken)
+      } catch (e) {
+        console.error('Erro ao descriptografar access token:', e)
+        accessToken = undefined
+      }
+    }
 
     // Cria registro da contribuição no banco
-    const contribution = await prisma.contribution.create({
-      data: {
-        giftId: data.giftId,
-        amount: data.amount,
-        payerName: data.payerName,
-        payerEmail: data.payerEmail,
-        payerCPF: encrypt(data.payerCPF.replace(/\D/g, '')),
-        payerPhone: data.payerPhone || null,
-        message: data.message || null,
-        isAnonymous: data.isAnonymous,
-        paymentMethod: data.paymentMethod,
-        paymentStatus: 'pending',
-        gatewayId: `pending_${Date.now()}`,
-        installments: data.installments || 1,
-      }
-    })
+    let contribution: any
+    
+    if (isVercel) {
+      const { data: contribData, error: contribError } = await supabase
+        .from('contributions')
+        .insert({
+          giftId: data.giftId,
+          amount: data.amount,
+          payerName: data.payerName,
+          payerEmail: data.payerEmail,
+          payerCPF: encrypt(data.payerCPF.replace(/\D/g, '')),
+          payerPhone: data.payerPhone || null,
+          message: data.message || null,
+          isAnonymous: data.isAnonymous,
+          paymentMethod: data.paymentMethod,
+          paymentStatus: 'pending',
+          gatewayId: `pending_${Date.now()}`,
+          installments: data.installments || 1,
+        })
+        .select()
+        .single()
+      
+      if (contribError) throw contribError
+      contribution = contribData
+    } else {
+      contribution = await prisma.contribution.create({
+        data: {
+          giftId: data.giftId,
+          amount: data.amount,
+          payerName: data.payerName,
+          payerEmail: data.payerEmail,
+          payerCPF: encrypt(data.payerCPF.replace(/\D/g, '')),
+          payerPhone: data.payerPhone || null,
+          message: data.message || null,
+          isAnonymous: data.isAnonymous,
+          paymentMethod: data.paymentMethod,
+          paymentStatus: 'pending',
+          gatewayId: `pending_${Date.now()}`,
+          installments: data.installments || 1,
+        }
+      })
+    }
 
     // Se não tem configuração do MP, retorna mock (modo desenvolvimento)
     if (!accessToken) {
@@ -182,14 +263,27 @@ export async function POST(request: NextRequest) {
     }
 
     // Atualiza contribuição com ID do MP
-    await prisma.contribution.update({
-      where: { id: contribution.id },
-      data: {
-        gatewayId: String(mpResult.id),
-        gatewayResponse: mpResult as any,
-        paymentStatus: mapPaymentStatus(mpResult.status || 'pending'),
-      }
-    })
+    if (isVercel) {
+      const { error: updateError } = await supabase
+        .from('contributions')
+        .update({
+          gatewayId: String(mpResult.id),
+          gatewayResponse: mpResult as any,
+          paymentStatus: mapPaymentStatus(mpResult.status || 'pending'),
+        })
+        .eq('id', contribution.id)
+      
+      if (updateError) throw updateError
+    } else {
+      await prisma.contribution.update({
+        where: { id: contribution.id },
+        data: {
+          gatewayId: String(mpResult.id),
+          gatewayResponse: mpResult as any,
+          paymentStatus: mapPaymentStatus(mpResult.status || 'pending'),
+        }
+      })
+    }
 
     // Retorna dados do pagamento
     const response: any = {
