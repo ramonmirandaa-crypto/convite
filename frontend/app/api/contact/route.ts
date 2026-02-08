@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { supabase } from '@/lib/supabase'
 import { createContactSchema } from '@/lib/validation'
 import { adminAuth } from '@/lib/adminAuth'
+
+const isVercel = process.env.VERCEL === '1'
 
 // GET /api/contact - Listar todas as mensagens (admin)
 export async function GET(request: NextRequest) {
@@ -10,14 +13,24 @@ export async function GET(request: NextRequest) {
   if (!auth.success) return auth.response!
 
   try {
-    const messages = await prisma.contactMessage.findMany({
-      orderBy: { createdAt: 'desc' }
-    })
+    let messages
+    if (isVercel) {
+      const { data, error } = await supabase
+        .from('contact_messages')
+        .select('*')
+        .order('createdAt', { ascending: false })
+      if (error) throw error
+      messages = data || []
+    } else {
+      messages = await prisma.contactMessage.findMany({
+        orderBy: { createdAt: 'desc' }
+      })
+    }
     return NextResponse.json({ messages })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao listar mensagens:', error)
     return NextResponse.json(
-      { error: 'Erro ao listar mensagens' },
+      { error: 'Erro ao listar mensagens', details: error?.message },
       { status: 500 }
     )
   }
@@ -36,18 +49,29 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const contact = await prisma.contactMessage.create({
-      data: parsed.data
-    })
+    let contact
+    if (isVercel) {
+      const { data, error } = await supabase
+        .from('contact_messages')
+        .insert(parsed.data)
+        .select()
+        .single()
+      if (error) throw error
+      contact = data
+    } else {
+      contact = await prisma.contactMessage.create({
+        data: parsed.data
+      })
+    }
 
     return NextResponse.json(
       { message: 'Mensagem enviada com sucesso', contact },
       { status: 201 }
     )
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao salvar mensagem:', error)
     return NextResponse.json(
-      { error: 'Erro ao enviar mensagem' },
+      { error: 'Erro ao enviar mensagem', details: error?.message },
       { status: 500 }
     )
   }

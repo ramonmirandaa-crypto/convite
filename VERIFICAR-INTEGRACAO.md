@@ -30,9 +30,9 @@ Acesse: https://weending.vercel.app/api/event
 ```json
 {
   "id": "uuid...",
-  "coupleNames": "Ana & Pedro",
-  "date": "2025-12-15T16:00:00.000Z",
-  "venue": "Igreja Matriz de São Paulo",
+  "coupleNames": "Raiana & Raphael",
+  "date": "2026-05-16T12:00:00.000Z",
+  "venue": "Rancho do Coutinho, Estrada Sao Jose do Turvo, 2195",
   ...
 }
 ```

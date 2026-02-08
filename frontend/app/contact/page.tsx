@@ -88,7 +88,9 @@ export default function Contact() {
                     </svg>
                   </div>
                   <h3 className="font-semibold text-gray-800 mb-1">Local</h3>
-                  <p className="text-sm text-gray-600">São Paulo, SP</p>
+                  <p className="text-sm text-gray-600">Rancho do Coutinho</p>
+                  <p className="text-xs text-gray-500">Estrada Sao Jose do Turvo, 2195</p>
+                  <p className="text-xs text-gray-500">Sao Luiz da Barra, Barra do Pirai - RJ</p>
                 </CardContent>
               </Card>
             </div>

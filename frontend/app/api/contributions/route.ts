@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { supabase } from '@/lib/supabase'
 import { createContributionSchema } from '@/lib/validation'
 import { encrypt } from '@/lib/crypto'
 import { adminAuth } from '@/lib/adminAuth'
+
+const isVercel = process.env.VERCEL === '1'
 
 // GET /api/contributions - Listar todas as contribuições (admin)
 export async function GET(request: NextRequest) {
@@ -16,27 +19,40 @@ export async function GET(request: NextRequest) {
     const guestId = searchParams.get('guestId')
     const status = searchParams.get('status')
 
-    const where: any = {}
-    if (giftId) where.giftId = giftId
-    if (guestId) where.guestId = guestId
-    if (status) where.paymentStatus = status
+    let query = supabase.from('contributions').select('*, gift(*), guest(*)')
+    
+    if (giftId) query = query.eq('giftId', giftId)
+    if (guestId) query = query.eq('guestId', guestId)
+    if (status) query = query.eq('paymentStatus', status)
 
-    const contributions = await prisma.contribution.findMany({
-      where,
-      include: {
-        gift: true,
-        guest: true
-      },
-      orderBy: {
-        createdAt: 'desc'
-      }
-    })
+    let contributions
+    if (isVercel) {
+      const { data, error } = await query.order('createdAt', { ascending: false })
+      if (error) throw error
+      contributions = data || []
+    } else {
+      const where: any = {}
+      if (giftId) where.giftId = giftId
+      if (guestId) where.guestId = guestId
+      if (status) where.paymentStatus = status
+
+      contributions = await prisma.contribution.findMany({
+        where,
+        include: {
+          gift: true,
+          guest: true
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      })
+    }
 
     return NextResponse.json(contributions)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao buscar contribuições:', error)
     return NextResponse.json(
-      { error: 'Erro ao buscar contribuições' },
+      { error: 'Erro ao buscar contribuições', details: error?.message },
       { status: 500 }
     )
   }
@@ -70,14 +86,25 @@ export async function POST(request: NextRequest) {
     }
 
     // Verifica se o presente existe
-    const gift = await prisma.gift.findUnique({
-      where: { id: giftId },
-      include: {
-        contributions: {
-          where: { paymentStatus: 'approved' }
+    let gift
+    if (isVercel) {
+      const { data, error } = await supabase
+        .from('gifts')
+        .select('*, contributions(*)')
+        .eq('id', giftId)
+        .single()
+      if (error) throw error
+      gift = data
+    } else {
+      gift = await prisma.gift.findUnique({
+        where: { id: giftId },
+        include: {
+          contributions: {
+            where: { paymentStatus: 'approved' }
+          }
         }
-      }
-    })
+      })
+    }
 
     if (!gift) {
       return NextResponse.json(
@@ -86,7 +113,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const totalReceived = gift.contributions.reduce((sum, c) => {
+    const contributions = gift.contributions || []
+    const approvedContributions = contributions.filter((c: any) => c.paymentStatus === 'approved')
+    const totalReceived = approvedContributions.reduce((sum: number, c: any) => {
       return sum + Number(c.amount)
     }, 0)
 
@@ -102,23 +131,48 @@ export async function POST(request: NextRequest) {
     // Encripta CPF antes de salvar (LGPD)
     const encryptedCPF = encrypt(payerCPF.replace(/[^\d]/g, ''))
 
-    const contribution = await prisma.contribution.create({
-      data: {
-        giftId,
-        guestId: guestId || null,
-        amount,
-        message: message || null,
-        isAnonymous,
-        payerName,
-        payerEmail,
-        payerCPF: encryptedCPF,
-        payerPhone: payerPhone || null,
-        paymentMethod,
-        paymentStatus: 'pending',
-        gatewayId: `pending_${Date.now()}`,
-        installments
-      }
-    })
+    let contribution
+    if (isVercel) {
+      const { data, error } = await supabase
+        .from('contributions')
+        .insert({
+          giftId,
+          guestId: guestId || null,
+          amount,
+          message: message || null,
+          isAnonymous,
+          payerName,
+          payerEmail,
+          payerCPF: encryptedCPF,
+          payerPhone: payerPhone || null,
+          paymentMethod,
+          paymentStatus: 'pending',
+          gatewayId: `pending_${Date.now()}`,
+          installments
+        })
+        .select()
+        .single()
+      if (error) throw error
+      contribution = data
+    } else {
+      contribution = await prisma.contribution.create({
+        data: {
+          giftId,
+          guestId: guestId || null,
+          amount,
+          message: message || null,
+          isAnonymous,
+          payerName,
+          payerEmail,
+          payerCPF: encryptedCPF,
+          payerPhone: payerPhone || null,
+          paymentMethod,
+          paymentStatus: 'pending',
+          gatewayId: `pending_${Date.now()}`,
+          installments
+        }
+      })
+    }
 
     return NextResponse.json({
       message: 'Contribuição criada com sucesso',
@@ -129,10 +183,10 @@ export async function POST(request: NextRequest) {
         expiresAt: new Date(Date.now() + 30 * 60 * 1000)
       }
     }, { status: 201 })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao criar contribuição:', error)
     return NextResponse.json(
-      { error: 'Erro ao criar contribuição' },
+      { error: 'Erro ao criar contribuição', details: error?.message },
       { status: 500 }
     )
   }

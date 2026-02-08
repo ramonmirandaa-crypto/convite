@@ -1,0 +1,40 @@
+════════════════════════════════════════════════════════════════
+  🚨 INSTRUÇÕES PARA CORRIGIR O DEPLOY
+════════════════════════════════════════════════════════════════
+
+O deploy falhou porque a variável DATABASE_URL está com placeholder
+[YOUR-PASSWORD] no arquivo .env.local
+
+PARA CORRIGIR:
+
+1. Atualize o arquivo .env.local com a senha real do Supabase:
+
+   Edite: /root/convite/frontend/.env.local
+   
+   Altere:
+   DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.ldnsqfhvoktggurghbrz.supabase.co:5432/postgres
+   
+   Para:
+   DATABASE_URL=postgresql://postgres:SUA_SENHA_REAL@db.ldnsqfhvoktggurghbrz.supabase.co:5432/postgres
+
+2. Adicione também estas variáveis:
+   POSTGRES_PRISMA_URL=postgresql://postgres:SUA_SENHA_REAL@db.ldnsqfhvoktggurghbrz.supabase.co:5432/postgres?pgbouncer=true&connect_timeout=15
+   POSTGRES_URL_NON_POOLING=postgresql://postgres:SUA_SENHA_REAL@db.ldnsqfhvoktggurghbrz.supabase.co:5432/postgres
+
+3. Configure as mesmas variáveis no Dashboard da Vercel:
+   https://vercel.com/dashboard → Seu Projeto → Settings → Environment Variables
+
+4. Rode o script de preparação:
+   ./prepare-deploy.sh
+
+5. Faça o deploy novamente:
+   ./deploy-quick.sh
+
+──────────────────────────────────────────────────────────────
+
+Se você não lembra a senha do Supabase:
+1. Acesse: https://supabase.com/dashboard/project/ldnsqfhvoktggurghbrz/settings/database
+2. Vá em "Database" → "Reset Password" (se necessário)
+3. Copie a senha e atualize os arquivos
+
+════════════════════════════════════════════════════════════════

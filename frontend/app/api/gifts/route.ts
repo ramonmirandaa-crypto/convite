@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { supabase } from '@/lib/supabase'
 import { createGiftSchema } from '@/lib/validation'
 import { adminAuth } from '@/lib/adminAuth'
+import { Prisma } from '@prisma/client'
+
+const isVercel = process.env.VERCEL === '1'
 
 // GET /api/gifts - Listar todos os presentes (público)
 export async function GET(request: NextRequest) {
@@ -9,28 +13,46 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const eventId = searchParams.get('eventId')
 
-    const where = eventId ? { eventId } : {}
-
-    const gifts = await prisma.gift.findMany({
-      where,
-      include: {
-        contributions: {
-          where: {
-            paymentStatus: 'approved'
-          }
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
+    let gifts
+    if (isVercel) {
+      // Usa Supabase
+      let query = supabase
+        .from('gifts')
+        .select('*, contributions(*)')
+        .order('createdAt', { ascending: false })
+      
+      if (eventId) {
+        query = query.eq('eventId', eventId)
       }
-    })
+      
+      const { data, error } = await query
+      if (error) throw error
+      gifts = data || []
+    } else {
+      // Usa Prisma
+      const where = eventId ? { eventId } : {}
+      gifts = await prisma.gift.findMany({
+        where,
+        include: {
+          contributions: {
+            where: {
+              paymentStatus: 'approved'
+            }
+          }
+        },
+        orderBy: {
+          createdAt: 'desc'
+        }
+      })
+    }
 
-    const giftsWithProgress = gifts.map(gift => {
-      const totalReceived = gift.contributions.reduce((sum, c) => {
+    const giftsWithProgress = gifts.map((gift: any) => {
+      const contributions = gift.contributions || []
+      const totalReceived = contributions.reduce((sum: number, c: any) => {
         return sum + Number(c.amount)
       }, 0)
 
-      const { contributions, ...giftData } = gift
+      const { contributions: _, ...giftData } = gift
       return {
         ...giftData,
         totalReceived,
@@ -40,10 +62,10 @@ export async function GET(request: NextRequest) {
     })
 
     return NextResponse.json({ gifts: giftsWithProgress })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao buscar presentes:', error)
     return NextResponse.json(
-      { error: 'Erro ao buscar presentes' },
+      { error: 'Erro ao buscar presentes', details: error?.message || String(error) },
       { status: 500 }
     )
   }
@@ -70,18 +92,45 @@ export async function POST(request: NextRequest) {
 
     let targetEventId = eventId
     if (!targetEventId) {
-      const existingEvent = await prisma.event.findFirst()
-      if (!existingEvent) {
-        return NextResponse.json(
-          { error: 'Nenhum evento encontrado. Crie um evento primeiro.' },
-          { status: 400 }
-        )
+      if (isVercel) {
+        const { data, error } = await supabase.from('events').select('id').single()
+        if (error || !data) {
+          return NextResponse.json(
+            { error: 'Nenhum evento encontrado. Crie um evento primeiro.' },
+            { status: 400 }
+          )
+        }
+        targetEventId = data.id
+      } else {
+        const existingEvent = await prisma.event.findFirst()
+        if (!existingEvent) {
+          return NextResponse.json(
+            { error: 'Nenhum evento encontrado. Crie um evento primeiro.' },
+            { status: 400 }
+          )
+        }
+        targetEventId = existingEvent.id
       }
-      targetEventId = existingEvent.id
     }
 
-    const gift = await prisma.gift.create({
-      data: {
+    let gift
+    if (isVercel) {
+      const { data, error } = await supabase
+        .from('gifts')
+        .insert({
+          eventId: targetEventId,
+          title,
+          description: description || null,
+          imageUrl: imageUrl || null,
+          totalValue,
+          status: 'available'
+        })
+        .select()
+        .single()
+      if (error) throw error
+      gift = data
+    } else {
+      const giftData: any = {
         eventId: targetEventId,
         title,
         description: description || null,
@@ -89,7 +138,8 @@ export async function POST(request: NextRequest) {
         totalValue,
         status: 'available'
       }
-    })
+      gift = await prisma.gift.create({ data: giftData })
+    }
 
     return NextResponse.json(
       { message: 'Presente criado com sucesso', gift },

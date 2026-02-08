@@ -5,6 +5,11 @@ const KEY_LENGTH = 32
 const IV_LENGTH = 16
 const AUTH_TAG_LENGTH = 16
 
+// Generate a new encryption key for environment setup
+export function generateEncryptionKey(): string {
+  return randomBytes(KEY_LENGTH).toString('base64')
+}
+
 function getKey(): Buffer {
   const secret = process.env.ENCRYPTION_KEY || 'default-dev-key-change-in-production'
   return scryptSync(secret, 'salt', KEY_LENGTH)

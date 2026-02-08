@@ -1,67 +1,63 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("POSTGRES_PRISMA_URL")
+  directUrl = env("POSTGRES_URL_NON_POOLING")
 }
 
 model Event {
-  id            String   @id @default(uuid())
-  coupleNames   String
-  date          DateTime
-  venue         String
-  venueMapsUrl  String?
-  description   String?  @db.Text
-  pixKey        String?  // Encriptada
-  pixKeyType    String?  // CPF, EMAIL, PHONE, RANDOM
-  mpConfig      Json?    // Configs Mercado Pago
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  gifts         Gift[]
-  guests        Guest[]
+  id           String   @id @default(uuid())
+  coupleNames  String
+  date         DateTime
+  venue        String
+  venueMapsUrl String?
+  description  String?
+  pixKey       String?
+  pixKeyType   String?
+  mpConfig     Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  gifts        Gift[]
+  guests       Guest[]
 
   @@map("events")
 }
 
 model Guest {
-  id                   String   @id @default(uuid())
-  eventId              String
-  name                 String
-  email                String
-  phone                String?
-  confirmed            Boolean  @default(false)
-  guestCount           Int      @default(1)
-  dietaryRestrictions  String?
-  suggestedSong        String?
-  qrCodeToken          String   @unique
-  createdAt            DateTime @default(now())
-  updatedAt            DateTime @updatedAt
-
-  event                Event    @relation(fields: [eventId], references: [id])
-  contributions        Contribution[]
+  id                  String         @id @default(uuid())
+  eventId             String
+  name                String
+  email               String
+  phone               String?
+  confirmed           Boolean        @default(false)
+  guestCount          Int            @default(1)
+  dietaryRestrictions String?
+  suggestedSong       String?
+  qrCodeToken         String         @unique
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  contributions       Contribution[]
+  event               Event          @relation(fields: [eventId], references: [id])
 
   @@map("guests")
 }
 
 model Gift {
-  id          String   @id @default(uuid())
-  eventId     String
-  title       String
-  description String?
-  imageUrl    String?
-  totalValue  Decimal  @db.Decimal(10, 2)
-  status      String   @default("available") // available, fulfilled, hidden
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  event       Event    @relation(fields: [eventId], references: [id])
+  id            String         @id @default(uuid())
+  eventId       String
+  title         String
+  description   String?
+  imageUrl      String?
+  totalValue    Decimal        @db.Decimal(10, 2)
+  status        String         @default("available")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   contributions Contribution[]
+  event         Event          @relation(fields: [eventId], references: [id])
 
   @@map("gifts")
 }
@@ -73,26 +69,18 @@ model Contribution {
   amount            Decimal  @db.Decimal(10, 2)
   message           String?
   isAnonymous       Boolean  @default(false)
-
-  // Dados do pagador (LGPD)
   payerName         String
   payerEmail        String
-  payerCPF          String   // Hash ou encriptado
+  payerCPF          String
   payerPhone        String?
-
-  // Gateway info
-  paymentMethod     String   // pix, credit_card, boleto
-  paymentStatus     String   @default("pending") // pending, approved, cancelled, refunded
-  gatewayId         String   // ID externo (MP)
-  gatewayResponse   Json?    // Log resposta API
-
-  // Parcelamento
-  installments       Int      @default(1)
-  installmentAmount  Decimal? @db.Decimal(10, 2)
-
+  paymentMethod     String
+  paymentStatus     String   @default("pending")
+  gatewayId         String
+  gatewayResponse   Json?
+  installments      Int      @default(1)
+  installmentAmount Decimal? @db.Decimal(10, 2)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-
   gift              Gift     @relation(fields: [giftId], references: [id])
   guest             Guest?   @relation(fields: [guestId], references: [id])
 
@@ -104,10 +92,23 @@ model ContactMessage {
   name      String
   email     String
   subject   String
-  message   String   @db.Text
+  message   String
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
 
   @@map("contact_messages")
 }
 
+model Photo {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  imageUrl    String
+  category    String   @default("gallery")
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("photos")
+}

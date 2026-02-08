@@ -203,20 +203,57 @@ npm run dev
 
 ## 📦 Deploy
 
-### Frontend (Vercel)
+### Opção 1: Script de Deploy Automatizado (Recomendado)
+
+O projeto inclui scripts de deploy que automatizam todo o processo:
+
+#### Deploy Completo (Primeira vez)
+```bash
+./deploy.sh
+```
+
+Este script irá:
+1. Verificar pré-requisitos (Node.js, Vercel CLI)
+2. Configurar variáveis de ambiente
+3. Instalar dependências
+4. Executar migrations do banco
+5. Fazer build local
+6. Fazer deploy na Vercel
+7. Configurar variáveis no dashboard
+
+#### Deploy Rápido (Atualizações)
+```bash
+./deploy-quick.sh
+```
+
+Para deploys rápidos quando já está configurado.
+
+#### Comandos do Script
+
+```bash
+# Deploy completo (menu interativo)
+./deploy.sh
+
+# Deploy completo direto
+./deploy.sh full
+
+# Apenas build local
+./deploy.sh build
+
+# Apenas deploy na Vercel
+./deploy.sh deploy
+
+# Verificar status do projeto
+./deploy.sh status
+```
+
+### Opção 2: Deploy Manual (Vercel)
 
 ```bash
 cd frontend
+npm install
 npm run build
 vercel deploy
-```
-
-### Backend (Railway)
-
-```bash
-cd backend
-npm run build
-railway up
 ```
 
 ### Banco de Dados
@@ -225,7 +262,12 @@ Configure as variáveis de ambiente no serviço de hosting:
 
 ```env
 DATABASE_URL="postgresql://user:password@host:port/database?schema=public"
+ENCRYPTION_KEY="sua-chave-secreta-de-32-caracteres"
+ADMIN_USER="admin"
+ADMIN_PASSWORD="sua-senha-segura"
 ```
+
+**Nota:** Para PostgreSQL gratuito, recomendamos [Supabase](https://supabase.com) ou [Neon](https://neon.tech).
 
 ## 📚 Documentação
 

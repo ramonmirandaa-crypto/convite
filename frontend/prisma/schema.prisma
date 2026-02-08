@@ -113,3 +113,17 @@ model ContactMessage {
   @@map("contact_messages")
 }
 
+model Photo {
+  id          String   @id @default(uuid())
+  title       String
+  description String?
+  imageUrl    String
+  category    String   @default("gallery") // gallery, banner, couple
+  order       Int      @default(0)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("photos")
+}
+

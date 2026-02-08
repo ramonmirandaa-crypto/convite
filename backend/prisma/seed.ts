@@ -13,11 +13,11 @@ async function main() {
   // Cria o evento
   const event = await prisma.event.create({
     data: {
-      coupleNames: 'Ana & Pedro',
-      date: new Date('2025-12-15T16:00:00'),
-      venue: 'Igreja Matriz de São Paulo',
-      venueMapsUrl: 'https://maps.google.com/?q=Igreja+Matriz+São+Paulo',
-      description: 'Celebrem conosco este momento especial! Após a cerimônia, a recepção será no Salão de Festas Central.',
+      coupleNames: 'Raiana & Raphael',
+      date: new Date('2026-05-16T12:00:00'),
+      venue: 'Rancho do Coutinho, Estrada Sao Jose do Turvo, 2195',
+      venueMapsUrl: 'https://maps.google.com/?q=Estr.+de+São+José+do+Turvo+-+São+Luiz+da+Barra,+Barra+do+Piraí+-+RJ,+27165-971',
+      description: 'Com grande alegria, convidamos você para celebrar conosco este momento especial! A cerimônia e a recepção serão no mesmo local.',
     }
   })
 

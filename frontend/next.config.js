@@ -1,7 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   images: {
-    domains: ['localhost'],
+    domains: ['localhost', '*.vercel.app', '*.supabase.co'],
+    unoptimized: true,
   },
   // Configuração para Serverless Functions na Vercel
   experimental: {

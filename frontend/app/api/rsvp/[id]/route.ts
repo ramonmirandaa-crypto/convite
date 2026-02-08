@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { supabase } from '@/lib/supabase'
 import { updateRSVPSchema } from '@/lib/validation'
 import { adminAuth } from '@/lib/adminAuth'
+
+const isVercel = process.env.VERCEL === '1'
 
 // GET /api/rsvp/:id - Buscar convidado específico
 export async function GET(
@@ -10,17 +13,29 @@ export async function GET(
 ) {
   try {
     const { id } = params
-    const guest = await prisma.guest.findUnique({
-      where: { id },
-      include: {
-        event: true,
-        contributions: {
-          include: {
-            gift: true
+    let guest
+
+    if (isVercel) {
+      const { data, error } = await supabase
+        .from('guests')
+        .select('*, event(*), contributions(*, gift(*))')
+        .eq('id', id)
+        .single()
+      if (error) throw error
+      guest = data
+    } else {
+      guest = await prisma.guest.findUnique({
+        where: { id },
+        include: {
+          event: true,
+          contributions: {
+            include: {
+              gift: true
+            }
           }
         }
-      }
-    })
+      })
+    }
 
     if (!guest) {
       return NextResponse.json(
@@ -30,10 +45,10 @@ export async function GET(
     }
 
     return NextResponse.json(guest)
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao buscar convidado:', error)
     return NextResponse.json(
-      { error: 'Erro ao buscar convidado' },
+      { error: 'Erro ao buscar convidado', details: error?.message },
       { status: 500 }
     )
   }
@@ -60,16 +75,28 @@ export async function PUT(
       )
     }
 
-    const guest = await prisma.guest.update({
-      where: { id },
-      data: parsed.data
-    })
+    let guest
+    if (isVercel) {
+      const { data, error } = await supabase
+        .from('guests')
+        .update(parsed.data)
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      guest = data
+    } else {
+      guest = await prisma.guest.update({
+        where: { id },
+        data: parsed.data
+      })
+    }
 
     return NextResponse.json({ message: 'Convidado atualizado com sucesso', guest })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao atualizar convidado:', error)
     return NextResponse.json(
-      { error: 'Erro ao atualizar convidado' },
+      { error: 'Erro ao atualizar convidado', details: error?.message },
       { status: 500 }
     )
   }
@@ -86,14 +113,19 @@ export async function DELETE(
 
   try {
     const { id } = params
-    await prisma.guest.delete({
-      where: { id }
-    })
+    
+    if (isVercel) {
+      const { error } = await supabase.from('guests').delete().eq('id', id)
+      if (error) throw error
+    } else {
+      await prisma.guest.delete({ where: { id } })
+    }
+    
     return NextResponse.json({ message: 'Convidado deletado com sucesso' })
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao deletar convidado:', error)
     return NextResponse.json(
-      { error: 'Erro ao deletar convidado' },
+      { error: 'Erro ao deletar convidado', details: error?.message },
       { status: 500 }
     )
   }
