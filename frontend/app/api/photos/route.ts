@@ -4,12 +4,20 @@ import { supabase } from '@/lib/supabase'
 
 const isVercel = process.env.VERCEL === '1'
 
+// Forçar rota dinâmica - não pode ser gerada estaticamente pois usa request.url
+export const dynamic = 'force-dynamic'
+
 // GET /api/photos - Buscar fotos ativas (público)
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const category = searchParams.get('category')
-    const limit = parseInt(searchParams.get('limit') || '50')
+    const rawLimit = searchParams.get('limit')
+    const parsedLimit = rawLimit ? Number.parseInt(rawLimit, 10) : Number.NaN
+    // Evita NaN e limita para proteger a query.
+    const limit = Number.isFinite(parsedLimit)
+      ? Math.min(Math.max(parsedLimit, 1), 100)
+      : 50
 
     let photos
 

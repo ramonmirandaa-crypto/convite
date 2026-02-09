@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { supabase } from '@/lib/supabase'
 import { supabaseAdmin } from '@/lib/supabase-admin'
 import { adminAuth } from '@/lib/adminAuth'
+import { randomUUID } from 'crypto'
 
 const isVercel = process.env.VERCEL === '1'
 
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
         venue,
         venueMapsUrl: venueMapsUrl || null,
         description: description || null,
+        updatedAt: new Date().toISOString(),
       }
 
       if (existingEvent) {
@@ -92,7 +94,7 @@ export async function POST(request: NextRequest) {
         // Cria novo
         const { data, error } = await supabaseAdmin
           .from('events')
-          .insert(eventData)
+          .insert({ id: randomUUID(), ...eventData })
           .select()
           .single()
         if (error) throw error

@@ -83,10 +83,10 @@ function HeroSection({ eventDate }: { eventDate: string }) {
 
   // Fotos padrão de fallback (hardcoded caso não tenha no painel)
   const fallbackPhotos = [
-    '/images/IMG_0544.png',
-    '/images/IMG_0548.jpeg',
-    '/images/IMG_0549.jpeg',
-    '/images/IMG_0550.jpeg',
+    '/Fotos/IMG_0544.png',
+    '/Fotos/IMG_0548.jpeg',
+    '/Fotos/IMG_0549.jpeg',
+    '/Fotos/IMG_0550.jpeg',
   ]
 
   // Usa fotos do painel ou fallback
@@ -220,10 +220,10 @@ function PhotosSection() {
 
   // Fotos padrão de fallback
   const fallbackPhotos = [
-    { src: '/images/5e17a544-5f8d-4169-b912-6ac1de30787f.jpeg', title: 'Amor' },
-    { src: '/images/603d0296-8ce6-47ba-8576-05bda785aa80.jpeg', title: 'Carinho' },
-    { src: '/images/67695956-b0e1-4c97-a7ba-f37006a2a9ab.jpeg', title: 'Ternura' },
-    { src: '/images/9a046fed-3acc-41c3-902e-d7e5f17fc680.jpeg', title: 'Paixão' },
+    { src: '/Fotos/5e17a544-5f8d-4169-b912-6ac1de30787f.jpeg', title: 'Amor' },
+    { src: '/Fotos/603d0296-8ce6-47ba-8576-05bda785aa80.jpeg', title: 'Carinho' },
+    { src: '/Fotos/67695956-b0e1-4c97-a7ba-f37006a2a9ab.jpeg', title: 'Ternura' },
+    { src: '/Fotos/9a046fed-3acc-41c3-902e-d7e5f17fc680.jpeg', title: 'Paixão' },
   ]
 
   const photos = galleryPhotos.length > 0
@@ -282,7 +282,7 @@ function StorySection() {
   const { photos: couplePhotos } = useCouplePhotos(1)
   const storyImage = couplePhotos.length > 0 
     ? couplePhotos[0].imageUrl 
-    : '/images/IMG_0549.jpeg'
+    : '/Fotos/IMG_0549.jpeg'
 
   return (
     <section className="py-24 px-4 bg-gradient-to-b from-white to-yellow-50/30">
@@ -476,6 +476,14 @@ function Footer({ eventDate, venue }: { eventDate: string; venue: string }) {
         <p className="text-gray-300 text-xs mt-8">
           Com amor, Raiana & Raphael ❤️
         </p>
+        <div className="mt-4">
+          <Link
+            href="/admin/login"
+            className="text-gray-300 hover:text-yellow-600 text-xs transition-colors"
+          >
+            Administração
+          </Link>
+        </div>
       </div>
     </footer>
   )

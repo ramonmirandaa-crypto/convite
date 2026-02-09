@@ -77,9 +77,10 @@ export async function PUT(
 
     let guest
     if (isVercel) {
+      const updateData = { ...parsed.data, updatedAt: new Date().toISOString() }
       const { data, error } = await supabase
         .from('guests')
-        .update(parsed.data)
+        .update(updateData)
         .eq('id', id)
         .select()
         .single()

@@ -1,7 +1,11 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { adminAuth } from '@/lib/adminAuth'
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const auth = adminAuth(request)
+  if (!auth.success) return auth.response!
+
   try {
     // Atualiza o evento para Raiana & Raphael
     const event = await prisma.event.upsert({
@@ -39,14 +43,14 @@ export async function POST() {
     ]
 
     const existingPhotos = await prisma.photo.count()
-    
+
     if (existingPhotos === 0) {
       for (let i = 0; i < photoFiles.length; i++) {
         await prisma.photo.create({
           data: {
             title: photoFiles[i].title,
             description: 'Momento especial de Raiana & Raphael',
-            imageUrl: `/images/${photoFiles[i].file}`,
+            imageUrl: `/Fotos/${photoFiles[i].file}`,
             category: 'gallery',
             order: i,
             isActive: true,
@@ -55,10 +59,16 @@ export async function POST() {
       }
     }
 
+    // Migra caminhos antigos /images/ → /Fotos/
+    const migratedPhotos = await prisma.$executeRawUnsafe(
+      `UPDATE "photos" SET "imageUrl" = REPLACE("imageUrl", '/images/', '/Fotos/') WHERE "imageUrl" LIKE '/images/%'`
+    )
+
     return NextResponse.json({
       message: 'Setup atualizado!',
       event: event,
       photosAdded: existingPhotos === 0 ? photoFiles.length : 0,
+      photoPathsMigrated: migratedPhotos,
     })
   } catch (error) {
     console.error('Erro no setup:', error)

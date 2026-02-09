@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import { adminAuth } from '@/lib/adminAuth'
 
 const isVercel = process.env.VERCEL === '1'
@@ -14,32 +14,32 @@ export async function GET(request: NextRequest) {
     let totalGuests = 0
     let confirmedGuests = 0
     let totalGifts = 0
-    let reservedGifts = 0
+    let fulfilledGifts = 0
     let contributions = 0
     let messages = 0
     let totalCollected = 0
 
     if (isVercel) {
       // Usa Supabase
-      const { count: tg, error: tgError } = await supabase.from('guests').select('*', { count: 'exact', head: true })
+      const { count: tg, error: tgError } = await supabaseAdmin.from('guests').select('*', { count: 'exact', head: true })
       if (!tgError) totalGuests = tg || 0
 
-      const { count: cg, error: cgError } = await supabase.from('guests').select('*', { count: 'exact', head: true }).eq('confirmed', true)
+      const { count: cg, error: cgError } = await supabaseAdmin.from('guests').select('*', { count: 'exact', head: true }).eq('confirmed', true)
       if (!cgError) confirmedGuests = cg || 0
 
-      const { count: tgi, error: tgiError } = await supabase.from('gifts').select('*', { count: 'exact', head: true })
+      const { count: tgi, error: tgiError } = await supabaseAdmin.from('gifts').select('*', { count: 'exact', head: true })
       if (!tgiError) totalGifts = tgi || 0
 
-      const { count: rg, error: rgError } = await supabase.from('gifts').select('*', { count: 'exact', head: true }).eq('status', 'fulfilled')
-      if (!rgError) reservedGifts = rg || 0
+      const { count: fg, error: fgError } = await supabaseAdmin.from('gifts').select('*', { count: 'exact', head: true }).eq('status', 'fulfilled')
+      if (!fgError) fulfilledGifts = fg || 0
 
-      const { count: c, error: cError } = await supabase.from('contributions').select('*', { count: 'exact', head: true }).eq('paymentStatus', 'approved')
+      const { count: c, error: cError } = await supabaseAdmin.from('contributions').select('*', { count: 'exact', head: true }).eq('paymentStatus', 'approved')
       if (!cError) contributions = c || 0
 
-      const { count: m, error: mError } = await supabase.from('contact_messages').select('*', { count: 'exact', head: true }).eq('read', false)
+      const { count: m, error: mError } = await supabaseAdmin.from('contact_messages').select('*', { count: 'exact', head: true }).eq('read', false)
       if (!mError) messages = m || 0
 
-      const { data: contribData, error: contribError } = await supabase
+      const { data: contribData, error: contribError } = await supabaseAdmin
         .from('contributions')
         .select('amount')
         .eq('paymentStatus', 'approved')
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
         tg,
         cg,
         tgi,
-        rg,
+        fg,
         c,
         m
       ] = await Promise.all([
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
       totalGuests = tg
       confirmedGuests = cg
       totalGifts = tgi
-      reservedGifts = rg
+      fulfilledGifts = fg
       contributions = c
       messages = m
 
@@ -83,7 +83,7 @@ export async function GET(request: NextRequest) {
       totalGuests,
       confirmedGuests,
       totalGifts,
-      reservedGifts,
+      fulfilledGifts,
       contributions,
       totalCollected,
       messages
@@ -97,7 +97,7 @@ export async function GET(request: NextRequest) {
       totalGuests: 0,
       confirmedGuests: 0,
       totalGifts: 0,
-      reservedGifts: 0,
+      fulfilledGifts: 0,
       contributions: 0,
       totalCollected: 0,
       messages: 0,

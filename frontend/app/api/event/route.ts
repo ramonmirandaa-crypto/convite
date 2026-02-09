@@ -6,6 +6,9 @@ import { z } from 'zod'
 
 const isVercel = process.env.VERCEL === '1'
 
+// Evita otimização estática/caches inesperados em GET.
+export const dynamic = 'force-dynamic'
+
 const updateEventSchema = z.object({
   coupleNames: z.string().min(2).max(200).optional(),
   date: z.string().datetime().optional(),
@@ -23,7 +26,7 @@ export async function GET() {
       // Usa Supabase na Vercel
       const { data, error } = await supabase
         .from('events')
-        .select('*')
+        .select('id,coupleNames,date,venue,venueMapsUrl,description,mpConfig')
         .single()
       
       if (error) throw error
@@ -64,6 +67,8 @@ export async function GET() {
       )
     }
 
+    const mpConfig = (event.mpConfig as any) || {}
+
     const response = NextResponse.json({
       id: event.id,
       coupleNames: event.coupleNames,
@@ -73,6 +78,10 @@ export async function GET() {
       description: event.description,
       guestCount,
       giftCount,
+      // Publico: nunca expor accessToken aqui.
+      mpConfig: {
+        publicKey: mpConfig?.publicKey || process.env.NEXT_PUBLIC_MP_PUBLIC_KEY || null,
+      },
     })
     
     // Desabilitar cache para sempre buscar dados atualizados
@@ -134,6 +143,7 @@ export async function PUT(request: NextRequest) {
 
     let updated
     if (isVercel) {
+      data.updatedAt = new Date().toISOString()
       const { data: result, error } = await supabase
         .from('events')
         .update(data)

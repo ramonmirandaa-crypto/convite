@@ -89,13 +89,13 @@ export default function RSVP() {
     <main className="min-h-screen bg-[#FDF8F3]">
       {/* Header */}
       <section className="relative pt-24 pb-12 px-4">
-        <div className="absolute inset-0 bg-[url('/images/IMG_0548.jpeg')] bg-cover bg-center opacity-5" />
+        <div className="absolute inset-0 bg-[url('/Fotos/IMG_0548.jpeg')] bg-cover bg-center opacity-5" />
         <div className="absolute inset-0 bg-gradient-to-b from-[#FDF8F3] via-[#FDF8F3]/95 to-[#FDF8F3]" />
         
         <div className="relative z-10 max-w-2xl mx-auto text-center">
           <div className="w-32 h-32 mx-auto mb-6 rounded-full overflow-hidden border-4 border-yellow-400 shadow-lg">
             <Image
-              src="/images/IMG_0549.jpeg"
+              src="/Fotos/IMG_0549.jpeg"
               alt="Raiana e Raphael"
               width={128}
               height={128}

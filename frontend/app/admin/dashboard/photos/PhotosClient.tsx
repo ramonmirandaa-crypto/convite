@@ -45,7 +45,7 @@ export default function PhotosClient({ initialPhotos }: PhotosClientProps) {
 
       if (res.ok) {
         const newPhoto = await res.json()
-        setPhotos([newPhoto, ...photos])
+        setPhotos([{ ...newPhoto, createdAt: new Date(newPhoto.createdAt) }, ...photos])
         e.currentTarget.reset()
         router.refresh()
       }

@@ -1,11 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import { createPixPayment, createCardPayment, mapPaymentStatus } from '@/lib/mercadopago'
 import { encrypt, decrypt } from '@/lib/crypto'
 import { z } from 'zod'
+import { randomUUID } from 'crypto'
+import { isValidCPF } from '@/lib/cpf'
 
 const isVercel = process.env.VERCEL === '1'
+
+function getSupabaseServerClient() {
+  // Prefer service role para rotas server-side (evita problemas com RLS).
+  return process.env.SUPABASE_SERVICE_ROLE_KEY ? supabaseAdmin : supabase
+}
 
 // Schema de validação
 const paymentSchema = z.object({
@@ -25,31 +33,6 @@ const paymentSchema = z.object({
   issuerId: z.string().optional(),
 })
 
-// Validar CPF
-function isValidCPF(cpf: string): boolean {
-  cpf = cpf.replace(/\D/g, '')
-  
-  if (cpf.length !== 11) return false
-  if (/^(\d)\1{10}$/.test(cpf)) return false
-
-  let sum = 0
-  for (let i = 1; i <= 9; i++) {
-    sum += parseInt(cpf.substring(i - 1, i)) * (11 - i)
-  }
-  let remainder = (sum * 10) % 11
-  if (remainder === 10 || remainder === 11) remainder = 0
-  if (remainder !== parseInt(cpf.substring(9, 10))) return false
-
-  sum = 0
-  for (let i = 1; i <= 10; i++) {
-    sum += parseInt(cpf.substring(i - 1, i)) * (12 - i)
-  }
-  remainder = (sum * 10) % 11
-  if (remainder === 10 || remainder === 11) remainder = 0
-  if (remainder !== parseInt(cpf.substring(10, 11))) return false
-
-  return true
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -81,7 +64,9 @@ export async function POST(request: NextRequest) {
     
     if (isVercel) {
       // Usa Supabase na Vercel
-      const { data: giftData, error: giftError } = await supabase
+      const sb = getSupabaseServerClient()
+
+      const { data: giftData, error: giftError } = await sb
         .from('gifts')
         .select('*')
         .eq('id', data.giftId)
@@ -96,7 +81,7 @@ export async function POST(request: NextRequest) {
       gift = giftData
 
       // Busca evento para configurações do MP
-      const { data: eventData, error: eventError } = await supabase
+      const { data: eventData, error: eventError } = await sb
         .from('events')
         .select('mpConfig')
         .single()
@@ -105,7 +90,7 @@ export async function POST(request: NextRequest) {
       event = eventData
 
       // Busca contribuições aprovadas
-      const { data: contribData, error: contribError } = await supabase
+      const { data: contribData, error: contribError } = await sb
         .from('contributions')
         .select('amount')
         .eq('giftId', data.giftId)
@@ -174,9 +159,13 @@ export async function POST(request: NextRequest) {
     let contribution: any
     
     if (isVercel) {
-      const { data: contribData, error: contribError } = await supabase
+      const sb = getSupabaseServerClient()
+      const contributionId = randomUUID()
+
+      const { data: contribData, error: contribError } = await sb
         .from('contributions')
         .insert({
+          id: contributionId,
           giftId: data.giftId,
           amount: data.amount,
           payerName: data.payerName,
@@ -189,6 +178,7 @@ export async function POST(request: NextRequest) {
           paymentStatus: 'pending',
           gatewayId: `pending_${Date.now()}`,
           installments: data.installments || 1,
+          updatedAt: new Date().toISOString(),
         })
         .select()
         .single()
@@ -247,6 +237,12 @@ export async function POST(request: NextRequest) {
           { status: 400 }
         )
       }
+      if (!data.paymentMethodId) {
+        return NextResponse.json(
+          { error: 'paymentMethodId é obrigatório para pagamento com cartão' },
+          { status: 400 }
+        )
+      }
 
       mpResult = await createCardPayment({
         amount: data.amount,
@@ -256,7 +252,7 @@ export async function POST(request: NextRequest) {
         payerCPF: data.payerCPF,
         token: data.cardToken,
         installments: data.installments || 1,
-        paymentMethodId: data.paymentMethodId || 'visa',
+        paymentMethodId: data.paymentMethodId,
         issuerId: data.issuerId,
         externalReference: contribution.id,
       }, accessToken)
@@ -264,12 +260,14 @@ export async function POST(request: NextRequest) {
 
     // Atualiza contribuição com ID do MP
     if (isVercel) {
-      const { error: updateError } = await supabase
+      const sb = getSupabaseServerClient()
+      const { error: updateError } = await sb
         .from('contributions')
         .update({
           gatewayId: String(mpResult.id),
           gatewayResponse: mpResult as any,
           paymentStatus: mapPaymentStatus(mpResult.status || 'pending'),
+          updatedAt: new Date().toISOString(),
         })
         .eq('id', contribution.id)
       

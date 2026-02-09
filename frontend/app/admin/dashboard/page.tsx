@@ -6,7 +6,7 @@ interface Stats {
   totalGuests: number
   confirmedGuests: number
   totalGifts: number
-  reservedGifts: number
+  fulfilledGifts: number
   contributions: number
   totalCollected: number
   messages: number
@@ -91,7 +91,7 @@ export default function DashboardPage() {
     { 
       title: 'Presentes', 
       value: stats.totalGifts, 
-      subtitle: `${stats.reservedGifts} reservados`,
+      subtitle: `${stats.fulfilledGifts} arrecadados`,
       icon: '🎁', 
       color: 'bg-yellow-100 text-yellow-700',
       link: '/admin/dashboard/gifts'

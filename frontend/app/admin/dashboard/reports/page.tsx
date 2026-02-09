@@ -42,7 +42,7 @@ export default function ReportsPage() {
 
   async function loadReports() {
     try {
-      const res = await fetch('/api/admin/reports/contributions')
+      const res = await fetch('/api/admin/reports')
       if (res.ok) {
         const data = await res.json()
         setContributions(data.contributions || [])

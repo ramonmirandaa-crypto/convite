@@ -71,9 +71,11 @@ export async function POST(request: NextRequest) {
           const { data: newEvent, error: createError } = await supabase
             .from('events')
             .insert({
+              id: randomUUID(),
               coupleNames: 'Casal',
               date: new Date('2025-06-22').toISOString(),
-              venue: 'Local do Evento'
+              venue: 'Local do Evento',
+              updatedAt: new Date().toISOString(),
             })
             .select()
             .single()
@@ -104,6 +106,7 @@ export async function POST(request: NextRequest) {
       const { data, error } = await supabase
         .from('guests')
         .insert({
+          id: randomUUID(),
           eventId: targetEventId,
           name,
           email,
@@ -112,7 +115,8 @@ export async function POST(request: NextRequest) {
           dietaryRestrictions: dietaryRestrictions || null,
           suggestedSong: suggestedSong || null,
           qrCodeToken,
-          confirmed: true
+          confirmed: true,
+          updatedAt: new Date().toISOString(),
         })
         .select()
         .single()

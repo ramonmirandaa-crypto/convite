@@ -1,10 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getPaymentStatus, mapPaymentStatus } from '@/lib/mercadopago'
 import { decrypt } from '@/lib/crypto'
 
 const isVercel = process.env.VERCEL === '1'
+
+function getSupabaseServerClient() {
+  return process.env.SUPABASE_SERVICE_ROLE_KEY ? supabaseAdmin : supabase
+}
+
+function resolveAccessToken(mpConfig: any): string | undefined {
+  const token = mpConfig?.accessToken
+  if (!token || typeof token !== 'string') return undefined
+  if (token.includes(':')) {
+    try {
+      return decrypt(token)
+    } catch {
+      return undefined
+    }
+  }
+  return token
+}
 
 export async function GET(
   request: NextRequest,
@@ -17,7 +35,8 @@ export async function GET(
     let contribution: any
     
     if (isVercel) {
-      const { data: contribData, error: contribError } = await supabase
+      const sb = getSupabaseServerClient()
+      const { data: contribData, error: contribError } = await sb
         .from('contributions')
         .select('*, gift:gifts(*)')
         .eq('id', id)
@@ -44,6 +63,48 @@ export async function GET(
       }
     }
 
+    async function recalcGiftStatus(giftId: string) {
+      try {
+        if (isVercel) {
+          const sb = getSupabaseServerClient()
+          const { data: gift, error: giftError } = await sb
+            .from('gifts')
+            .select('id,totalValue,status')
+            .eq('id', giftId)
+            .single()
+          if (giftError || !gift) return
+
+          const { data: contribs, error: contribError } = await sb
+            .from('contributions')
+            .select('amount')
+            .eq('giftId', giftId)
+            .eq('paymentStatus', 'approved')
+          if (contribError) return
+
+          const totalReceived = (contribs || []).reduce((sum: number, c: any) => sum + Number(c.amount), 0)
+          const shouldBeFulfilled = totalReceived >= Number(gift.totalValue)
+          const nextStatus = shouldBeFulfilled ? 'fulfilled' : (gift.status === 'hidden' ? 'hidden' : 'available')
+          if (nextStatus !== gift.status) {
+            await sb.from('gifts').update({ status: nextStatus, updatedAt: new Date().toISOString() }).eq('id', giftId)
+          }
+        } else {
+          const gift = await prisma.gift.findUnique({
+            where: { id: giftId },
+            include: { contributions: { where: { paymentStatus: 'approved' } } }
+          })
+          if (!gift) return
+          const totalReceived = (gift.contributions || []).reduce((sum, c) => sum + Number(c.amount), 0)
+          const shouldBeFulfilled = totalReceived >= Number(gift.totalValue)
+          const nextStatus = shouldBeFulfilled ? 'fulfilled' : (gift.status === 'hidden' ? 'hidden' : 'available')
+          if (nextStatus !== gift.status) {
+            await prisma.gift.update({ where: { id: giftId }, data: { status: nextStatus } })
+          }
+        }
+      } catch (e) {
+        console.error('[Payment Status] Falha ao recalcular status do presente:', e)
+      }
+    }
+
     // Se não tem gatewayId ainda, retorna status pendente
     if (!contribution.gatewayId || contribution.gatewayId.startsWith('pending_')) {
       return NextResponse.json({
@@ -57,16 +118,18 @@ export async function GET(
       let mpConfig: any = {}
       
       if (isVercel) {
-        const { data: eventData } = await supabase.from('events').select('mpConfig').single()
+        const sb = getSupabaseServerClient()
+        const { data: eventData } = await sb.from('events').select('mpConfig').single()
         mpConfig = eventData?.mpConfig || {}
       } else {
         const event = await prisma.event.findFirst()
         mpConfig = (event?.mpConfig as any) || {}
       }
       
-      const accessToken = mpConfig.accessToken 
-        ? decrypt(mpConfig.accessToken)
-        : undefined
+      const accessToken =
+        resolveAccessToken(mpConfig) ||
+        process.env.MERCADOPAGO_ACCESS_TOKEN ||
+        process.env.MP_ACCESS_TOKEN
 
       if (accessToken) {
         const mpPayment = await getPaymentStatus(contribution.gatewayId, accessToken)
@@ -75,11 +138,13 @@ export async function GET(
         // Atualiza se o status mudou
         if (newStatus !== contribution.paymentStatus) {
           if (isVercel) {
-            await supabase
+            const sb = getSupabaseServerClient()
+            await sb
               .from('contributions')
               .update({
                 paymentStatus: newStatus,
                 gatewayResponse: mpPayment as any,
+                updatedAt: new Date().toISOString(),
               })
               .eq('id', contribution.id)
           } else {
@@ -92,58 +157,7 @@ export async function GET(
             })
           }
 
-          // Se foi aprovado, verifica se o presente foi totalmente arrecadado
-          if (newStatus === 'approved') {
-            let gift: any
-            let contributions: any[] = []
-            
-            if (isVercel) {
-              const { data: giftData } = await supabase
-                .from('gifts')
-                .select('*')
-                .eq('id', contribution.giftId)
-                .single()
-              
-              const { data: contribData } = await supabase
-                .from('contributions')
-                .select('amount')
-                .eq('giftId', contribution.giftId)
-                .eq('paymentStatus', 'approved')
-              
-              gift = giftData
-              contributions = contribData || []
-            } else {
-              gift = await prisma.gift.findUnique({
-                where: { id: contribution.giftId },
-                include: {
-                  contributions: {
-                    where: { paymentStatus: 'approved' }
-                  }
-                }
-              })
-              contributions = gift?.contributions || []
-            }
-
-            if (gift) {
-              const totalReceived = contributions.reduce((sum: number, c: any) => {
-                return sum + Number(c.amount)
-              }, 0)
-
-              if (totalReceived >= Number(gift.totalValue)) {
-                if (isVercel) {
-                  await supabase
-                    .from('gifts')
-                    .update({ status: 'fulfilled' })
-                    .eq('id', gift.id)
-                } else {
-                  await prisma.gift.update({
-                    where: { id: gift.id },
-                    data: { status: 'fulfilled' }
-                  })
-                }
-              }
-            }
-          }
+          await recalcGiftStatus(contribution.giftId)
 
           return NextResponse.json({
             contribution: {

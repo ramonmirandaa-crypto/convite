@@ -44,7 +44,7 @@ export default function AdminLogin() {
         <div className="text-center mb-8">
           <div className="w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden border-2 border-yellow-400 relative">
             <Image
-              src="/images/IMG_0549.jpeg"
+              src="/Fotos/IMG_0549.jpeg"
               alt="Raiana e Raphael"
               fill
               className="object-cover"

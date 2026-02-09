@@ -65,6 +65,18 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Tenta descriptografar o webhookSecret do MP
+    if (mpConfig.webhookSecret && mpConfig.webhookSecret.includes(':')) {
+      try {
+        mpConfig = {
+          ...mpConfig,
+          webhookSecret: decrypt(mpConfig.webhookSecret)
+        }
+      } catch (e) {
+        console.log('Webhook Secret pode estar em texto plano ou formato inválido')
+      }
+    }
+
     return NextResponse.json({
       pixKey,
       pixKeyType: event.pixKeyType || '',
@@ -91,6 +103,7 @@ export async function POST(request: NextRequest) {
     const pixKeyType = formData.get('pixKeyType') as string
     const mpAccessToken = formData.get('mpAccessToken') as string
     const mpPublicKey = formData.get('mpPublicKey') as string
+    const mpWebhookSecret = formData.get('mpWebhookSecret') as string
 
     // Busca o primeiro evento
     let event
@@ -130,11 +143,15 @@ export async function POST(request: NextRequest) {
     if (mpPublicKey !== null) {
       newConfig.publicKey = mpPublicKey || null
     }
-    
+    if (mpWebhookSecret !== null) {
+      newConfig.webhookSecret = mpWebhookSecret ? encrypt(mpWebhookSecret) : null
+    }
+
     updateData.mpConfig = newConfig
 
     // Atualiza o evento
     if (isVercel) {
+      updateData.updatedAt = new Date().toISOString()
       // Usa service role key para bypass do RLS
       const { error } = await supabaseAdmin
         .from('events')

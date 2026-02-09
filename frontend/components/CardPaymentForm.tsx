@@ -5,6 +5,7 @@ import {
   useMercadoPago,
   useIdentificationTypes,
   useCardTokenization,
+  usePaymentMethods,
 } from '@/lib/mercadopago-js'
 
 interface CardPaymentFormProps {
@@ -45,6 +46,22 @@ function detectCardBrand(bin: string): string {
   return 'unknown'
 }
 
+function fallbackPaymentMethodIdFromBrand(brand: string): string | null {
+  // Mercado Pago usa ids como "master" (nao "mastercard").
+  const map: Record<string, string> = {
+    visa: 'visa',
+    mastercard: 'master',
+    amex: 'amex',
+    diners: 'diners',
+    discover: 'discover',
+    jcb: 'jcb',
+    aura: 'aura',
+    hipercard: 'hipercard',
+    elo: 'elo',
+  }
+  return map[brand] || null
+}
+
 // Ícones das bandeiras
 const cardIcons: Record<string, string> = {
   visa: '💳 Visa',
@@ -78,20 +95,20 @@ export default function CardPaymentForm({
   const [installments, setInstallments] = useState(1)
   const [cardBrand, setCardBrand] = useState('unknown')
   const [installmentsOptions, setInstallmentsOptions] = useState<any[]>([])
+  const bin = cardNumber.replace(/\D/g, '').slice(0, 6)
+  const { methods: paymentMethods } = usePaymentMethods(bin)
 
   // Atualiza a bandeira quando o número muda
   useEffect(() => {
-    const bin = cardNumber.replace(/\D/g, '').slice(0, 6)
     if (bin.length >= 4) {
       setCardBrand(detectCardBrand(bin))
     } else {
       setCardBrand('unknown')
     }
-  }, [cardNumber])
+  }, [bin])
 
   // Busca parcelas quando tem cartão suficiente
   useEffect(() => {
-    const bin = cardNumber.replace(/\D/g, '').slice(0, 6)
     if (mp && bin.length >= 6 && amount > 0) {
       mp.getInstallments({
         amount: amount.toString(),
@@ -126,6 +143,24 @@ export default function CardPaymentForm({
     const cleanIdNumber = idNumber.replace(/\D/g, '')
 
     try {
+      // Resolve o paymentMethodId real do MP (evita usar heuristica "mastercard" que costuma falhar).
+      let paymentMethodId: string | null = paymentMethods?.[0]?.id || null
+      if (!paymentMethodId && bin.length >= 6) {
+        try {
+          const result = await mp.getPaymentMethods({ bin })
+          paymentMethodId = result?.results?.[0]?.id || null
+        } catch {
+          // Ignora e tenta fallback abaixo.
+        }
+      }
+      if (!paymentMethodId) {
+        paymentMethodId = fallbackPaymentMethodIdFromBrand(cardBrand)
+      }
+      if (!paymentMethodId) {
+        onError('Nao foi possivel identificar o metodo de pagamento do cartao (bandeira).')
+        return
+      }
+
       const cardToken = await createCardToken({
         cardNumber: cardNumber.replace(/\D/g, ''),
         cardholderName,
@@ -137,7 +172,7 @@ export default function CardPaymentForm({
       })
 
       if (cardToken) {
-        onSubmit(cardToken, cardBrand, installments)
+        onSubmit(cardToken, paymentMethodId, installments)
       } else {
         onError('Erro ao gerar token do cartão')
       }

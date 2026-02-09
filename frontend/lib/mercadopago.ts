@@ -2,7 +2,10 @@ import { MercadoPagoConfig, Payment, Preference } from 'mercadopago'
 
 // Configuração do Mercado Pago
 export function getMercadoPagoClient(accessToken?: string) {
-  const token = accessToken || process.env.MERCADOPAGO_ACCESS_TOKEN
+  const token =
+    accessToken ||
+    process.env.MERCADOPAGO_ACCESS_TOKEN ||
+    process.env.MP_ACCESS_TOKEN
   
   if (!token) {
     throw new Error('Access token do Mercado Pago não configurado')
@@ -14,6 +17,15 @@ export function getMercadoPagoClient(accessToken?: string) {
       timeout: 5000,
     }
   })
+}
+
+function getWebhookUrl(): string {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+  if (!appUrl) {
+    // Isso evita criar pagamentos com notification_url inválida (o MP rejeita ou não notifica).
+    throw new Error('NEXT_PUBLIC_APP_URL não configurado (necessário para o webhook do Mercado Pago)')
+  }
+  return `${appUrl}/api/payments/webhook`
 }
 
 // Interface para criação de pagamento PIX
@@ -60,7 +72,7 @@ export async function createPixPayment(data: CreatePixPaymentData, accessToken?:
         },
       },
       external_reference: data.externalReference,
-      notification_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/webhook`,
+      notification_url: getWebhookUrl(),
     },
   })
 
@@ -90,7 +102,7 @@ export async function createCardPayment(data: CreateCardPaymentData, accessToken
         },
       },
       external_reference: data.externalReference,
-      notification_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/webhook`,
+      notification_url: getWebhookUrl(),
     },
   })
 

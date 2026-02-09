@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { supabase } from '@/lib/supabase'
 import { createContactSchema } from '@/lib/validation'
 import { adminAuth } from '@/lib/adminAuth'
+import { randomUUID } from 'crypto'
 
 const isVercel = process.env.VERCEL === '1'
 
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
     if (isVercel) {
       const { data, error } = await supabase
         .from('contact_messages')
-        .insert(parsed.data)
+        .insert({ id: randomUUID(), ...parsed.data })
         .select()
         .single()
       if (error) throw error

@@ -4,12 +4,12 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE
 const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseKey) {
-  console.error('Supabase URL or Key not configured')
+  console.warn('[Supabase] URL or Anon Key not configured. Supabase features will be unavailable.')
 }
 
 export const supabase = createClient(
-  supabaseUrl || '',
-  supabaseKey || ''
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseKey || 'placeholder-key-for-build'
 )
 
 // Função para testar a conexão

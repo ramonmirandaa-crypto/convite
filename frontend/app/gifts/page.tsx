@@ -552,7 +552,7 @@ export default function Gifts() {
   const { photos: couplePhotos } = useCouplePhotos(1)
   const headerImage = couplePhotos.length > 0 
     ? couplePhotos[0].imageUrl 
-    : '/images/IMG_0544.png'
+    : '/Fotos/IMG_0544.png'
 
   useEffect(() => {
     loadGifts()
@@ -592,7 +592,7 @@ export default function Gifts() {
     <main className="min-h-screen bg-[#FDF8F3]">
       {/* Header */}
       <section className="relative pt-24 pb-12 px-4">
-        <div className="absolute inset-0 bg-[url('/images/IMG_0550.jpeg')] bg-cover bg-center opacity-5" />
+        <div className="absolute inset-0 bg-[url('/Fotos/IMG_0550.jpeg')] bg-cover bg-center opacity-5" />
         <div className="absolute inset-0 bg-gradient-to-b from-[#FDF8F3] via-[#FDF8F3]/95 to-[#FDF8F3]" />
         
         <div className="relative z-10 max-w-4xl mx-auto text-center">

@@ -44,7 +44,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-yellow-400 flex-shrink-0 relative">
               <Image
-                src="/images/IMG_0549.jpeg"
+                src="/Fotos/IMG_0549.jpeg"
                 alt="Raiana e Raphael"
                 fill
                 className="object-cover"

@@ -1,18 +1,67 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import { getPaymentStatus, processWebhook, mapPaymentStatus } from '@/lib/mercadopago'
 import { decrypt } from '@/lib/crypto'
 import { sendPaymentConfirmationEmail, sendNewContributionNotification } from '@/lib/email'
+import { verifyWebhookSignature } from '@/lib/webhook-signature'
 
 const isVercel = process.env.VERCEL === '1'
+const logInfo = process.env.NODE_ENV !== 'production'
+
+// Forçar rota dinâmica
+export const dynamic = 'force-dynamic'
+
+function getSupabaseServerClient() {
+  return process.env.SUPABASE_SERVICE_ROLE_KEY ? supabaseAdmin : supabase
+}
+
+function resolveSecret(mpConfig: any): string | undefined {
+  const secret = mpConfig?.webhookSecret
+  if (!secret || typeof secret !== 'string') return undefined
+  if (secret.includes(':')) {
+    try { return decrypt(secret) } catch { return undefined }
+  }
+  return secret
+}
+
+function resolveAccessToken(mpConfig: any): string | undefined {
+  const token = mpConfig?.accessToken
+  if (!token || typeof token !== 'string') return undefined
+
+  // Se estiver criptografado (iv:tag:ciphertext), descriptografa.
+  if (token.includes(':')) {
+    try {
+      return decrypt(token)
+    } catch {
+      return undefined
+    }
+  }
+
+  // Legado: texto plano.
+  return token
+}
 
 // POST - Receber notificações do Mercado Pago
 export async function POST(request: NextRequest) {
   try {
+    // Valida assinatura HMAC do Mercado Pago (se secret configurado)
+    const webhookSecret = await getWebhookSecret()
+    if (webhookSecret) {
+      const sig = verifyWebhookSignature(request, webhookSecret)
+      if (!sig.valid) {
+        if (logInfo) console.log('[MP Webhook] Signature rejected:', sig.reason)
+        return NextResponse.json(
+          { error: 'Invalid webhook signature' },
+          { status: 401 }
+        )
+      }
+    } else if (logInfo) {
+      console.log('[MP Webhook] Webhook secret not configured, skipping signature validation')
+    }
+
     const body = await request.json()
-    
-    console.log('Webhook recebido:', JSON.stringify(body, null, 2))
 
     // Processa a notificação
     const notification = processWebhook(body)
@@ -25,19 +74,66 @@ export async function POST(request: NextRequest) {
     }
 
     const paymentId = notification.paymentId
+    if (logInfo) console.log('[MP Webhook] paymentId:', paymentId)
+
+    async function recalcGiftStatus(giftId: string) {
+      try {
+        if (isVercel) {
+          const sb = getSupabaseServerClient()
+          const { data: gift, error: giftError } = await sb
+            .from('gifts')
+            .select('id,totalValue,status')
+            .eq('id', giftId)
+            .single()
+          if (giftError || !gift) return
+
+          const { data: contribs, error: contribError } = await sb
+            .from('contributions')
+            .select('amount')
+            .eq('giftId', giftId)
+            .eq('paymentStatus', 'approved')
+          if (contribError) return
+
+          const totalReceived = (contribs || []).reduce((sum: number, c: any) => sum + Number(c.amount), 0)
+          const shouldBeFulfilled = totalReceived >= Number(gift.totalValue)
+          const nextStatus = shouldBeFulfilled ? 'fulfilled' : (gift.status === 'hidden' ? 'hidden' : 'available')
+
+          if (nextStatus !== gift.status) {
+            await sb.from('gifts').update({ status: nextStatus, updatedAt: new Date().toISOString() }).eq('id', giftId)
+          }
+        } else {
+          const gift = await prisma.gift.findUnique({
+            where: { id: giftId },
+            include: { contributions: { where: { paymentStatus: 'approved' } } }
+          })
+          if (!gift) return
+
+          const totalReceived = (gift.contributions || []).reduce((sum, c) => sum + Number(c.amount), 0)
+          const shouldBeFulfilled = totalReceived >= Number(gift.totalValue)
+          const nextStatus = shouldBeFulfilled ? 'fulfilled' : (gift.status === 'hidden' ? 'hidden' : 'available')
+
+          if (nextStatus !== gift.status) {
+            await prisma.gift.update({ where: { id: giftId }, data: { status: nextStatus } })
+          }
+        }
+      } catch (e) {
+        console.error('[MP Webhook] Falha ao recalcular status do presente:', e)
+      }
+    }
 
     // Busca a contribuição pelo gatewayId
     let contribution: any
     
     if (isVercel) {
-      const { data: contribData, error: contribError } = await supabase
+      const sb = getSupabaseServerClient()
+      const { data: contribData, error: contribError } = await sb
         .from('contributions')
         .select('*, gift:gifts(*), guest:guests(*)')
         .eq('gatewayId', paymentId)
         .single()
       
       if (contribError || !contribData) {
-        console.log(`Contribuição não encontrada para paymentId: ${paymentId}`)
+        if (logInfo) console.log(`Contribuição não encontrada para paymentId: ${paymentId}`)
         return NextResponse.json({ 
           success: true, 
           message: 'Pagamento não encontrado no sistema' 
@@ -54,7 +150,7 @@ export async function POST(request: NextRequest) {
       })
 
       if (!contribution) {
-        console.log(`Contribuição não encontrada para paymentId: ${paymentId}`)
+        if (logInfo) console.log(`Contribuição não encontrada para paymentId: ${paymentId}`)
         return NextResponse.json({ 
           success: true, 
           message: 'Pagamento não encontrado no sistema' 
@@ -62,50 +158,59 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Se já está aprovado, não processa novamente
-    if (contribution.paymentStatus === 'approved') {
-      return NextResponse.json({ 
-        success: true, 
-        message: 'Pagamento já processado' 
-      })
-    }
-
     // Busca dados atualizados do pagamento no MP
     let mpPayment: any
-    try {
-      // Busca configurações do evento para obter access token
-      let mpConfig: any = {}
-      
-      if (isVercel) {
-        const { data: eventData } = await supabase.from('events').select('mpConfig').single()
-        mpConfig = eventData?.mpConfig || {}
-      } else {
-        const event = await prisma.event.findFirst()
-        mpConfig = (event?.mpConfig as any) || {}
-      }
-      
-      const accessToken = mpConfig.accessToken 
-        ? decrypt(mpConfig.accessToken)
-        : undefined
+    // Busca configurações do evento para obter access token
+    let mpConfig: any = {}
+    if (isVercel) {
+      const sb = getSupabaseServerClient()
+      const { data: eventData, error: eventError } = await sb.from('events').select('mpConfig').single()
+      if (eventError) throw eventError
+      mpConfig = eventData?.mpConfig || {}
+    } else {
+      const event = await prisma.event.findFirst()
+      mpConfig = (event?.mpConfig as any) || {}
+    }
 
+    const accessToken = resolveAccessToken(mpConfig)
+    if (!accessToken && !process.env.MERCADOPAGO_ACCESS_TOKEN && !process.env.MP_ACCESS_TOKEN) {
+      // Sem token, nao temos como validar status com seguranca.
+      return NextResponse.json(
+        { error: 'Mercado Pago nao configurado (access token ausente)' },
+        { status: 500 }
+      )
+    }
+
+    try {
       mpPayment = await getPaymentStatus(paymentId, accessToken)
     } catch (error) {
-      console.log('Não foi possível consultar status no MP, usando dados do webhook')
-      mpPayment = body.data || body
+      console.error('[MP Webhook] Falha ao consultar pagamento no Mercado Pago:', error)
+      // Retorna 500 para o MP tentar novamente depois.
+      return NextResponse.json(
+        { error: 'Nao foi possivel consultar o status no Mercado Pago' },
+        { status: 500 }
+      )
     }
 
     // Mapeia o status
     const newStatus = mapPaymentStatus(mpPayment.status || 'pending')
 
+    // Idempotencia: se nao mudou, nao faz nada.
+    if (newStatus === contribution.paymentStatus) {
+      return NextResponse.json({ success: true, message: 'Status inalterado' })
+    }
+
     // Atualiza a contribuição
     let updatedContribution: any
     
     if (isVercel) {
-      const { data: updatedData, error: updateError } = await supabase
+      const sb = getSupabaseServerClient()
+      const { data: updatedData, error: updateError } = await sb
         .from('contributions')
         .update({
           paymentStatus: newStatus,
           gatewayResponse: mpPayment as any,
+          updatedAt: new Date().toISOString(),
         })
         .eq('id', contribution.id)
         .select()
@@ -123,61 +228,12 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // Se foi aprovado, executa ações adicionais
-    if (newStatus === 'approved') {
-      // 1. Verifica se o presente foi totalmente arrecadado
-      let gift: any
-      let contributions: any[] = []
-      
-      if (isVercel) {
-        const { data: giftData } = await supabase
-          .from('gifts')
-          .select('*')
-          .eq('id', contribution.giftId)
-          .single()
-        
-        const { data: contribData } = await supabase
-          .from('contributions')
-          .select('amount')
-          .eq('giftId', contribution.giftId)
-          .eq('paymentStatus', 'approved')
-        
-        gift = giftData
-        contributions = contribData || []
-      } else {
-        gift = await prisma.gift.findUnique({
-          where: { id: contribution.giftId },
-          include: {
-            contributions: {
-              where: { paymentStatus: 'approved' }
-            }
-          }
-        })
-        contributions = gift?.contributions || []
-      }
+    // Recalcula status do presente sempre que status mudar (aprovado/refundado/cancelado).
+    await recalcGiftStatus(contribution.giftId)
 
-      if (gift) {
-        const totalReceived = contributions.reduce((sum: number, c: any) => {
-          return sum + Number(c.amount)
-        }, 0)
-
-        if (totalReceived >= Number(gift.totalValue)) {
-          if (isVercel) {
-            await supabase
-              .from('gifts')
-              .update({ status: 'fulfilled' })
-              .eq('id', gift.id)
-          } else {
-            await prisma.gift.update({
-              where: { id: gift.id },
-              data: { status: 'fulfilled' }
-            })
-          }
-          console.log(`Presente ${gift.id} totalmente arrecadado!`)
-        }
-      }
-
-      // 2. Envia email de confirmação para o contribuinte
+    // Se transicionou para aprovado, executa ações adicionais (uma vez).
+    if (newStatus === 'approved' && contribution.paymentStatus !== 'approved') {
+      // 1) Envia email de confirmação para o contribuinte
       try {
         await sendPaymentConfirmationEmail(
           contribution.payerEmail,
@@ -186,13 +242,12 @@ export async function POST(request: NextRequest) {
           Number(contribution.amount),
           contribution.paymentMethod
         )
-        console.log(`Email de confirmação enviado para ${contribution.payerEmail}`)
+        if (logInfo) console.log(`[MP Webhook] Email de confirmação enviado para ${contribution.payerEmail}`)
       } catch (emailError) {
-        console.error('Erro ao enviar email de confirmação:', emailError)
-        // Não falha o webhook se o email não for enviado
+        console.error('[MP Webhook] Erro ao enviar email de confirmação:', emailError)
       }
 
-      // 3. Envia notificação para os noivos
+      // 2) Notifica os noivos
       try {
         await sendNewContributionNotification(
           contribution.gift.title,
@@ -201,7 +256,7 @@ export async function POST(request: NextRequest) {
           contribution.isAnonymous
         )
       } catch (emailError) {
-        console.error('Erro ao enviar notificação:', emailError)
+        console.error('[MP Webhook] Erro ao enviar notificação:', emailError)
       }
     }
 
@@ -217,6 +272,27 @@ export async function POST(request: NextRequest) {
       { error: error.message || 'Erro ao processar webhook' },
       { status: 500 }
     )
+  }
+}
+
+// Busca o webhook secret do evento (mpConfig.webhookSecret) ou env var
+async function getWebhookSecret(): Promise<string | undefined> {
+  const envSecret = process.env.MP_WEBHOOK_SECRET
+  if (envSecret) return envSecret
+
+  try {
+    let mpConfig: any = {}
+    if (isVercel) {
+      const sb = getSupabaseServerClient()
+      const { data } = await sb.from('events').select('mpConfig').single()
+      mpConfig = data?.mpConfig || {}
+    } else {
+      const event = await prisma.event.findFirst()
+      mpConfig = (event?.mpConfig as any) || {}
+    }
+    return resolveSecret(mpConfig)
+  } catch {
+    return undefined
   }
 }
 

@@ -53,19 +53,6 @@ export function getEvent() {
   return request<EventData>('/event')
 }
 
-// Contribution
-export function createContribution(data: {
-  giftId: string
-  amount: number
-  payerName: string
-  payerEmail: string
-  payerCPF: string
-  message?: string
-  isAnonymous?: boolean
-}) {
-  return request('/contributions', { method: 'POST', body: JSON.stringify(data) })
-}
-
 // Payments
 export function createPayment(data: {
   giftId: string

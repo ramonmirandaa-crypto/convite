@@ -4,8 +4,12 @@ import { supabase } from '@/lib/supabase'
 import { createGiftSchema } from '@/lib/validation'
 import { adminAuth } from '@/lib/adminAuth'
 import { Prisma } from '@prisma/client'
+import { randomUUID } from 'crypto'
 
 const isVercel = process.env.VERCEL === '1'
+
+// Forçar rota dinâmica - usa request.url
+export const dynamic = 'force-dynamic'
 
 // GET /api/gifts - Listar todos os presentes (público)
 export async function GET(request: NextRequest) {
@@ -47,7 +51,11 @@ export async function GET(request: NextRequest) {
     }
 
     const giftsWithProgress = gifts.map((gift: any) => {
-      const contributions = gift.contributions || []
+      // Em Supabase, a relação pode trazer contribuições de qualquer status.
+      // Para manter consistência com o Prisma (que filtra aprovadas), filtramos aqui.
+      const contributions = (gift.contributions || []).filter(
+        (c: any) => c?.paymentStatus === 'approved'
+      )
       const totalReceived = contributions.reduce((sum: number, c: any) => {
         return sum + Number(c.amount)
       }, 0)
@@ -118,12 +126,14 @@ export async function POST(request: NextRequest) {
       const { data, error } = await supabase
         .from('gifts')
         .insert({
+          id: randomUUID(),
           eventId: targetEventId,
           title,
           description: description || null,
           imageUrl: imageUrl || null,
           totalValue,
-          status: 'available'
+          status: 'available',
+          updatedAt: new Date().toISOString(),
         })
         .select()
         .single()

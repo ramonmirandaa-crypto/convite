@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 import { adminAuth } from '@/lib/adminAuth'
 
 const isVercel = process.env.VERCEL === '1'
@@ -13,9 +13,9 @@ export async function GET(request: NextRequest) {
   try {
     let contributions
     if (isVercel) {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from('contributions')
-        .select('*, gift(title), guest(name, email)')
+        .select('*, gift:gifts(title), guest:guests(name, email)')
         .order('createdAt', { ascending: false })
       if (error) throw error
       contributions = data || []
@@ -61,8 +61,10 @@ export async function GET(request: NextRequest) {
       }
 
       // Contribuições por mês
-      const month = new Date(c.createdAt).toISOString().slice(0, 7) // YYYY-MM
-      stats.contributionsByMonth[month] = (stats.contributionsByMonth[month] || 0) + amount
+      if (c.paymentStatus === 'approved') {
+        const month = new Date(c.createdAt).toISOString().slice(0, 7) // YYYY-MM
+        stats.contributionsByMonth[month] = (stats.contributionsByMonth[month] || 0) + amount
+      }
 
       // Estatísticas por presente
       if (c.paymentStatus === 'approved') {
