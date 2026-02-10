@@ -9,6 +9,10 @@ interface Gift {
   description: string | null
   imageUrl: string | null
   totalValue: number
+  totalReceived: number
+  remaining: number
+  progress: number
+  quotaTotal: number | null
   status: string
   _count: {
     contributions: number
@@ -86,6 +90,8 @@ export default function GiftsPage() {
             <tr>
               <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">Presente</th>
               <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">Valor</th>
+              <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">Cotas</th>
+              <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">Arrecadado</th>
               <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">Status</th>
               <th className="text-left px-6 py-4 text-sm font-semibold text-gray-600">Contribuições</th>
               <th className="text-right px-6 py-4 text-sm font-semibold text-gray-600">Ações</th>
@@ -121,6 +127,36 @@ export default function GiftsPage() {
                   </span>
                 </td>
                 <td className="px-6 py-4">
+                  <div>
+                    <span className="font-medium text-gray-800">{gift.quotaTotal || 1}</span>
+                    <p className="text-xs text-gray-400">
+                      Cota: R${' '}
+                      {(() => {
+                        const qt = Number(gift.quotaTotal || 1)
+                        const totalCents = Math.round(Number(gift.totalValue) * 100)
+                        if (qt <= 0 || totalCents % qt !== 0) return '-'
+                        return (totalCents / qt / 100).toFixed(2)
+                      })()}
+                    </p>
+                  </div>
+                </td>
+                <td className="px-6 py-4">
+                  <div>
+                    <span className="font-medium text-green-700">
+                      R$ {Number(gift.totalReceived || 0).toFixed(2)}
+                    </span>
+                    <p className="text-xs text-gray-400">
+                      Restante: R$ {Number(gift.remaining || 0).toFixed(2)}
+                    </p>
+                    <div className="mt-2 h-1 bg-gray-100 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-green-500 rounded-full"
+                        style={{ width: `${Math.min(100, Math.max(0, Number(gift.progress || 0)))}%` }}
+                      />
+                    </div>
+                  </div>
+                </td>
+                <td className="px-6 py-4">
                   <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
                     gift.status === 'available' 
                       ? 'bg-green-100 text-green-700'
@@ -138,9 +174,13 @@ export default function GiftsPage() {
                 </td>
                 <td className="px-6 py-4 text-right">
                   <div className="flex items-center justify-end gap-2">
-                    <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition">
+                    <a
+                      href={`/admin/dashboard/gifts/${gift.id}/edit`}
+                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                      title="Editar"
+                    >
                       ✏️
-                    </button>
+                    </a>
                     <DeleteButton giftId={gift.id} />
                   </div>
                 </td>
@@ -148,7 +188,7 @@ export default function GiftsPage() {
             ))}
             {gifts.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-6 py-12 text-center text-gray-500">
+                <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                   <div className="text-4xl mb-2">🎁</div>
                   <p>Nenhum presente cadastrado</p>
                   <a 

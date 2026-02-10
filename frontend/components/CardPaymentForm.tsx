@@ -115,11 +115,23 @@ export default function CardPaymentForm({
         bin,
       }).then((result) => {
         if (result && result.length > 0) {
-          setInstallmentsOptions(result[0].payer_costs || [])
+          const raw = result[0].payer_costs || []
+          // Regras do projeto:
+          // - no maximo 3x
+          // - minimo R$ 80,00 por parcela
+          const allowed = raw.filter((o: any) => {
+            const inst = Number(o?.installments || 0)
+            const instAmount = Number(o?.installment_amount || 0)
+            return inst >= 1 && inst <= 3 && instAmount >= 80
+          })
+          setInstallmentsOptions(allowed)
+          if (allowed.length > 0 && !allowed.some((o: any) => Number(o.installments) === installments)) {
+            setInstallments(Number(allowed[0].installments))
+          }
         }
       }).catch(console.error)
     }
-  }, [mp, cardNumber, amount])
+  }, [mp, cardNumber, amount, installments, bin])
 
   // Formata CPF
   const formatCPF = (value: string) => {

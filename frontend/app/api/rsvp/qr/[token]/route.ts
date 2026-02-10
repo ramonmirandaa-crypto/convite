@@ -4,10 +4,10 @@ import { prisma } from '@/lib/prisma'
 // GET /api/rsvp/qr/:token - Validar QR Code
 export async function GET(
   request: Request,
-  { params }: { params: { token: string } }
+  { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    const { token } = params
+    const { token } = await params
     const guest = await prisma.guest.findUnique({
       where: { qrCodeToken: token },
       include: {

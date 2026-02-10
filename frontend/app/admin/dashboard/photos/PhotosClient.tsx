@@ -24,6 +24,28 @@ export default function PhotosClient({ initialPhotos }: PhotosClientProps) {
   const [error, setError] = useState('')
   const router = useRouter()
 
+  const readPayload = async (res: Response): Promise<any> => {
+    const text = await res.text().catch(() => '')
+    if (!text) return {}
+    try {
+      return JSON.parse(text)
+    } catch {
+      // Next/Vercel can return HTML for unhandled errors; surface it for debugging.
+      return { error: text }
+    }
+  }
+
+  const formatApiError = (payload: any, fallback: string) => {
+    const parts: string[] = []
+    if (payload?.error && typeof payload.error === 'string') parts.push(payload.error)
+    else parts.push(fallback)
+    if (payload?.details && typeof payload.details === 'string') parts.push(`Detalhes: ${payload.details}`)
+    if (payload?.hint && typeof payload.hint === 'string') parts.push(`Dica: ${payload.hint}`)
+    if (payload?.bucket && typeof payload.bucket === 'string') parts.push(`Bucket: ${payload.bucket}`)
+    if (payload?.path && typeof payload.path === 'string') parts.push(`Path: ${payload.path}`)
+    return parts.join('\n')
+  }
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
@@ -46,13 +68,13 @@ export default function PhotosClient({ initialPhotos }: PhotosClientProps) {
           body: uploadData,
         })
 
-        const uploadJson = await uploadRes.json()
+        const uploadJson = await readPayload(uploadRes)
         if (!uploadRes.ok) {
-          setError(uploadJson?.error || 'Erro ao fazer upload da imagem')
+          setError(formatApiError(uploadJson, `Erro ao fazer upload da imagem (HTTP ${uploadRes.status})`))
           return
         }
 
-        imageUrl = uploadJson?.url || null
+        imageUrl = typeof uploadJson?.url === 'string' ? uploadJson.url : null
       } else if (typeof imageUrlInput === 'string' && imageUrlInput.trim()) {
         imageUrl = imageUrlInput.trim()
       }
@@ -76,18 +98,18 @@ export default function PhotosClient({ initialPhotos }: PhotosClientProps) {
         body: JSON.stringify(data)
       })
 
+      const payload = await readPayload(res)
       if (res.ok) {
-        const newPhoto = await res.json()
-        setPhotos([{ ...newPhoto, createdAt: new Date(newPhoto.createdAt) }, ...photos])
+        const newPhoto = payload
+        setPhotos(prev => [{ ...newPhoto, createdAt: new Date(newPhoto.createdAt) }, ...prev])
         e.currentTarget.reset()
         router.refresh()
       } else {
-        const err = await res.json()
-        setError(err.error || 'Erro ao adicionar foto')
+        setError(formatApiError(payload, `Erro ao adicionar foto (HTTP ${res.status})`))
       }
     } catch (error) {
       console.error('Erro ao adicionar foto:', error)
-      setError('Erro ao adicionar foto')
+      setError(error instanceof Error ? error.message : 'Erro ao adicionar foto')
     } finally {
       setLoading(false)
     }
@@ -116,7 +138,7 @@ export default function PhotosClient({ initialPhotos }: PhotosClientProps) {
         <h2 className="text-lg font-semibold text-gray-800 mb-4">Adicionar Nova Foto</h2>
 
         {error && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-4">
+          <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-4 whitespace-pre-wrap break-words">
             {error}
           </div>
         )}

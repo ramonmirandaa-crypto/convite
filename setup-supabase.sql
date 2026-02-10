@@ -72,11 +72,16 @@ CREATE TABLE IF NOT EXISTS "gifts" (
   "description" TEXT,
   "imageUrl" TEXT,
   "totalValue" DECIMAL(10,2) NOT NULL,
+  "quotaTotal" INTEGER NOT NULL DEFAULT 1,
   "status" TEXT NOT NULL DEFAULT 'available',
   "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "updatedAt" TIMESTAMP(3) NOT NULL,
   CONSTRAINT "gifts_pkey" PRIMARY KEY ("id")
 );
+
+-- Se a tabela ja existia, garante que a coluna quotaTotal exista.
+ALTER TABLE "gifts"
+  ADD COLUMN IF NOT EXISTS "quotaTotal" INTEGER NOT NULL DEFAULT 1;
 
 DO $$
 BEGIN
@@ -223,4 +228,3 @@ CROSS JOIN (VALUES
   ('Jogo de Cama', 'Kit casal 400 fios algodao egipcio', 350)
 ) AS g("title","description","value")
 WHERE NOT EXISTS (SELECT 1 FROM "gifts");
-

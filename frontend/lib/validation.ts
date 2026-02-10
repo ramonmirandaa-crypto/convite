@@ -32,6 +32,7 @@ export const createGiftSchema = z.object({
   description: z.string().max(500).optional(),
   imageUrl: z.string().url().optional(),
   totalValue: z.number().positive('Valor deve ser positivo'),
+  quotaTotal: z.number().int().min(1, 'Quantidade de cotas deve ser pelo menos 1').max(10000).optional(),
   eventId: z.string().uuid().optional(),
 })
 
@@ -40,6 +41,7 @@ export const updateGiftSchema = z.object({
   description: z.string().max(500).nullable().optional(),
   imageUrl: z.string().url().nullable().optional(),
   totalValue: z.number().positive().optional(),
+  quotaTotal: z.number().int().min(1).max(10000).optional(),
   status: z.enum(['available', 'fulfilled', 'hidden']).optional(),
 })
 

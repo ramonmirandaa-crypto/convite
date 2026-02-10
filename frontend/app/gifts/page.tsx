@@ -19,7 +19,8 @@ interface PaymentModalProps {
 function PaymentModal({ gift, publicKey, onClose, onSuccess }: PaymentModalProps) {
   const [step, setStep] = useState<'form' | 'pix' | 'card' | 'loading' | 'success'>('form')
   const [paymentMethod, setPaymentMethod] = useState<'pix' | 'card'>('pix')
-  const [amount, setAmount] = useState(gift.remaining || 0)
+  const [amount, setAmount] = useState(0)
+  const [quotaQuantity, setQuotaQuantity] = useState(1)
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -40,6 +41,28 @@ function PaymentModal({ gift, publicKey, onClose, onSuccess }: PaymentModalProps
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const pollingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const quotaValue = typeof gift.quotaValue === 'number' ? gift.quotaValue : null
+  const quotasRemaining = typeof gift.quotasRemaining === 'number' ? gift.quotasRemaining : null
+  const canUseQuotas = quotaValue !== null && quotasRemaining !== null && quotaValue > 0
+  const quotasAvailable = quotasRemaining ?? 0
+  const useRemainingFallback = canUseQuotas && quotasAvailable < 1 && Number(gift.remaining) > 0
+
+  // Inicializa valor/quantidade ao abrir modal (ou trocar de presente).
+  useEffect(() => {
+    setStep('form')
+    setPaymentMethod('pix')
+    setError('')
+    setQuotaQuantity(1)
+
+    if (canUseQuotas && quotaValue) {
+      setAmount(useRemainingFallback ? (Number(gift.remaining) || 0) : quotaValue)
+    } else {
+      // Fallback: contribui com o restante (comportamento antigo)
+      setAmount(Number(gift.remaining) || 0)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gift.id])
+
   // Limpa polling ao desmontar o componente
   useEffect(() => {
     return () => {
@@ -57,6 +80,7 @@ function PaymentModal({ gift, publicKey, onClose, onSuccess }: PaymentModalProps
       const payload = {
         giftId: gift.id,
         amount,
+        quotaQuantity: canUseQuotas && !useRemainingFallback ? quotaQuantity : undefined,
         payerName: formData.name,
         payerEmail: formData.email,
         payerCPF: formData.cpf,
@@ -123,6 +147,7 @@ function PaymentModal({ gift, publicKey, onClose, onSuccess }: PaymentModalProps
         body: JSON.stringify({
           giftId: gift.id,
           amount,
+          quotaQuantity: canUseQuotas && !useRemainingFallback ? quotaQuantity : undefined,
           payerName: formData.name,
           payerEmail: formData.email,
           payerCPF: formData.cpf,
@@ -399,22 +424,90 @@ function PaymentModal({ gift, publicKey, onClose, onSuccess }: PaymentModalProps
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Valor */}
+          {/* Cotas / Valor */}
           <div>
-            <label className="block text-sm text-gray-600 mb-2">Valor da Contribuição (R$)</label>
-            <input
-              type="number"
-              min={1}
-              max={gift.remaining}
-              step="0.01"
-              required
-              value={amount}
-              onChange={(e) => setAmount(Number(e.target.value))}
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:border-yellow-400 focus:outline-none"
-            />
-            <p className="text-xs text-gray-400 mt-1">
-              Restante: R$ {Number(gift.remaining).toFixed(2)}
-            </p>
+            <label className="block text-sm text-gray-600 mb-2">
+              {canUseQuotas && !useRemainingFallback ? 'Quantidade de Cotas' : 'Valor da Contribuição (R$)'}
+            </label>
+
+            {canUseQuotas && !useRemainingFallback ? (
+              <>
+                <div className="flex items-center gap-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = Math.max(1, quotaQuantity - 1)
+                      setQuotaQuantity(next)
+                      setAmount((quotaValue || 0) * next)
+                    }}
+                    disabled={quotaQuantity <= 1}
+                    className="w-12 h-12 rounded-full bg-gray-100 hover:bg-yellow-100 flex items-center justify-center text-gray-600 hover:text-yellow-600 transition-colors disabled:opacity-50"
+                  >
+                    −
+                  </button>
+
+                  <input
+                    type="number"
+                    min={1}
+                    max={Math.max(1, quotasAvailable)}
+                    step={1}
+                    required
+                    value={quotaQuantity}
+                    onChange={(e) => {
+                      const raw = Math.floor(Number(e.target.value))
+                      const max = Math.max(1, quotasAvailable)
+                      const next = Math.min(max, Math.max(1, Number.isFinite(raw) ? raw : 1))
+                      setQuotaQuantity(next)
+                      setAmount((quotaValue || 0) * next)
+                    }}
+                    className="w-24 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:border-yellow-400 focus:outline-none text-center"
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const max = Math.max(1, quotasAvailable)
+                      const next = Math.min(max, quotaQuantity + 1)
+                      setQuotaQuantity(next)
+                      setAmount((quotaValue || 0) * next)
+                    }}
+                    disabled={quotaQuantity >= quotasAvailable}
+                    className="w-12 h-12 rounded-full bg-gray-100 hover:bg-yellow-100 flex items-center justify-center text-gray-600 hover:text-yellow-600 transition-colors disabled:opacity-50"
+                  >
+                    +
+                  </button>
+                </div>
+
+                <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
+                  <span>Valor da cota: R$ {(quotaValue || 0).toFixed(2)}</span>
+                  <span>Disponíveis: {quotasRemaining ?? '-'}</span>
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Restante: R$ {Number(gift.remaining).toFixed(2)}
+                </p>
+              </>
+            ) : (
+              <>
+                <input
+                  type="number"
+                  min={1}
+                  max={gift.remaining}
+                  step="0.01"
+                  required
+                  value={amount}
+                  onChange={(e) => setAmount(Number(e.target.value))}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:border-yellow-400 focus:outline-none"
+                />
+                {useRemainingFallback && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Restante menor que 1 cota. Você pode contribuir com o valor restante.
+                  </p>
+                )}
+                <p className="text-xs text-gray-400 mt-1">
+                  Restante: R$ {Number(gift.remaining).toFixed(2)}
+                </p>
+              </>
+            )}
           </div>
 
           {/* Dados Pessoais */}
@@ -489,6 +582,11 @@ function PaymentModal({ gift, publicKey, onClose, onSuccess }: PaymentModalProps
           <div>
             <label className="block text-sm text-gray-600 mb-2">Forma de Pagamento</label>
             <div className="grid grid-cols-2 gap-4">
+              {/*
+                Regras:
+                - Cartão somente a partir de R$ 100,00
+                - Parcelamento no máximo 3x e mínimo R$ 80,00/parcela (filtrado no componente de cartão e validado no backend)
+              */}
               <button
                 type="button"
                 onClick={() => setPaymentMethod('pix')}
@@ -503,15 +601,24 @@ function PaymentModal({ gift, publicKey, onClose, onSuccess }: PaymentModalProps
               </button>
               <button
                 type="button"
+                disabled={!publicKey || amount < 100 || amount <= 0}
                 onClick={() => {
                   setPaymentMethod('card')
+                  if (!publicKey) {
+                    setError('Pagamento com cartão não configurado. Use PIX ou configure o Mercado Pago.')
+                    return
+                  }
+                  if (amount < 100) {
+                    setError('Pagamento com cartão disponível apenas para valores a partir de R$ 100,00.')
+                    return
+                  }
                   if (publicKey) {
                     setStep('card')
                   } else {
                     setError('Pagamento com cartão não configurado. Use PIX ou configure o Mercado Pago.')
                   }
                 }}
-                className={`p-4 rounded-xl border-2 text-center transition ${
+                className={`p-4 rounded-xl border-2 text-center transition disabled:opacity-50 disabled:cursor-not-allowed ${
                   paymentMethod === 'card'
                     ? 'border-yellow-400 bg-yellow-50'
                     : 'border-gray-200 hover:border-yellow-200'
@@ -521,6 +628,9 @@ function PaymentModal({ gift, publicKey, onClose, onSuccess }: PaymentModalProps
                 <p className="font-medium text-gray-800 mt-1">Cartão</p>
               </button>
             </div>
+            <p className="text-xs text-gray-400 mt-2">
+              Cartão: mínimo R$ 100,00. Parcelamento: até 3x, mínimo R$ 80,00 por parcela.
+            </p>
           </div>
 
           {/* Botões */}
@@ -535,7 +645,7 @@ function PaymentModal({ gift, publicKey, onClose, onSuccess }: PaymentModalProps
             </button>
             <button
               type="submit"
-              disabled={step === 'loading' || paymentMethod !== 'pix'}
+              disabled={step === 'loading' || paymentMethod !== 'pix' || amount <= 0}
               className="flex-1 py-3 rounded-full btn-premium text-white disabled:opacity-50"
             >
               {step === 'loading' ? 'Processando...' : 'Continuar'}
@@ -600,6 +710,14 @@ function GiftCard({ gift, onContribute }: { gift: Gift; onContribute: (gift: Gif
             <p className="text-xl font-semibold text-gradient-gold">
               R$ {Number(gift.totalValue).toFixed(2)}
             </p>
+            {typeof gift.quotaValue === 'number' &&
+              typeof gift.quotaTotal === 'number' &&
+              gift.quotaTotal > 1 &&
+              typeof gift.quotasRemaining === 'number' && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Cota: R$ {gift.quotaValue.toFixed(2)} • Restam {gift.quotasRemaining}
+                </p>
+              )}
           </div>
 
           {gift.status === 'available' ? (

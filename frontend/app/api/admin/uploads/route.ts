@@ -8,6 +8,7 @@ import { promises as fs } from 'fs'
 export const runtime = 'nodejs'
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024 // 10MB
+const isVercel = process.env.VERCEL === '1'
 
 const ALLOWED_IMAGE_MIME_TYPES = new Set([
   'image/jpeg',
@@ -41,6 +42,16 @@ function hasSupabaseAdminConfig(): boolean {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   return Boolean(supabaseUrl && serviceKey)
+}
+
+function isBucketNotFoundError(error: any): boolean {
+  const msg = String(error?.message || '').toLowerCase()
+  return msg.includes('bucket not found') || error?.statusCode === 404
+}
+
+function isBucketAlreadyExistsError(error: any): boolean {
+  const msg = String(error?.message || '').toLowerCase()
+  return msg.includes('already exists') || error?.statusCode === 409
 }
 
 export async function POST(request: NextRequest) {
@@ -86,24 +97,54 @@ export async function POST(request: NextRequest) {
 
     // Prefer Supabase Storage when configured (recommended for Vercel/serverless).
     if (hasSupabaseAdminConfig()) {
+      const supabaseAdmin = getSupabaseAdmin()
       const bucket = process.env.SUPABASE_STORAGE_BUCKET || 'photos'
       const prefix = process.env.SUPABASE_STORAGE_PREFIX || 'uploads'
       const objectPath = `${prefix}/${fileId}.${ext}`
 
       const buffer = Buffer.from(await file.arrayBuffer())
-      const { error } = await getSupabaseAdmin().storage
-        .from(bucket)
-        .upload(objectPath, buffer, {
-          contentType: file.type,
-          upsert: false,
-          cacheControl: '31536000',
-        })
+      const uploadOptions = {
+        contentType: file.type,
+        upsert: false,
+        cacheControl: '31536000',
+      }
+
+      let { error } = await supabaseAdmin.storage.from(bucket).upload(objectPath, buffer, uploadOptions)
+      if (error && isBucketNotFoundError(error)) {
+        // Self-heal: create the bucket (public) and retry once.
+        const { error: createError } = await supabaseAdmin.storage.createBucket(bucket, { public: true })
+        if (createError && !isBucketAlreadyExistsError(createError)) {
+          console.error('[Uploads] Storage createBucket failed', {
+            bucket,
+            message: createError.message,
+          })
+          return NextResponse.json(
+            {
+              error: 'Erro ao criar bucket no Storage.',
+              details: createError.message,
+              bucket,
+              hint:
+                'Crie o bucket manualmente no Supabase Storage ou verifique permissões da service role key.',
+            },
+            { status: 500 }
+          )
+        }
+
+        ;({ error } = await supabaseAdmin.storage.from(bucket).upload(objectPath, buffer, uploadOptions))
+      }
 
       if (error) {
+        console.error('[Uploads] Storage upload failed', {
+          bucket,
+          objectPath,
+          message: error.message,
+        })
         return NextResponse.json(
           {
             error: 'Erro ao enviar imagem para o Storage.',
             details: error.message,
+            bucket,
+            path: objectPath,
             hint:
               'Verifique se o bucket existe e está público (ou ajuste as políticas). Você pode configurar SUPABASE_STORAGE_BUCKET.',
           },
@@ -111,10 +152,22 @@ export async function POST(request: NextRequest) {
         )
       }
 
-      const { data } = getSupabaseAdmin().storage.from(bucket).getPublicUrl(objectPath)
+      const { data } = supabaseAdmin.storage.from(bucket).getPublicUrl(objectPath)
       return NextResponse.json(
         { url: data.publicUrl, bucket, path: objectPath },
         { status: 201 }
+      )
+    }
+
+    // On Vercel, the filesystem is read-only (except /tmp) and cannot be used to serve public uploads.
+    if (isVercel) {
+      return NextResponse.json(
+        {
+          error: 'Upload local não disponível na Vercel.',
+          hint:
+            'Configure o Supabase Storage (bucket público) e a variável SUPABASE_SERVICE_ROLE_KEY, ou informe uma URL manualmente no campo de imagem.',
+        },
+        { status: 500 }
       )
     }
 

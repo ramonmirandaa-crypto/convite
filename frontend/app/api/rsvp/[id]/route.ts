@@ -9,10 +9,10 @@ const isVercel = process.env.VERCEL === '1'
 // GET /api/rsvp/:id - Buscar convidado específico
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    const { id } = await params
     let guest
 
     if (isVercel) {
@@ -57,14 +57,14 @@ export async function GET(
 // PUT /api/rsvp/:id - Atualizar convidado (admin)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // Verifica autenticação admin
   const auth = adminAuth(request)
   if (!auth.success) return auth.response!
 
   try {
-    const { id } = params
+    const { id } = await params
     const body = await request.json()
     const parsed = updateRSVPSchema.safeParse(body)
     
@@ -106,14 +106,14 @@ export async function PUT(
 // DELETE /api/rsvp/:id - Deletar convidado (admin)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // Verifica autenticação admin
   const auth = adminAuth(request)
   if (!auth.success) return auth.response!
 
   try {
-    const { id } = params
+    const { id } = await params
     
     if (isVercel) {
       const { error } = await supabase.from('guests').delete().eq('id', id)

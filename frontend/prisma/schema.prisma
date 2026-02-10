@@ -3,7 +3,9 @@
 
 generator client {
   provider = "prisma-client-js"
-  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+  // "native" e suficiente quando o build/instalacao roda no mesmo ambiente do deploy (ex: Vercel).
+  // Evita precisar baixar engines de outros targets durante o generate.
+  binaryTargets = ["native"]
 }
 
 datasource db {
@@ -58,6 +60,7 @@ model Gift {
   description String?
   imageUrl    String?
   totalValue  Decimal  @db.Decimal(10, 2)
+  quotaTotal  Int      @default(1)
   status      String   @default("available") // available, fulfilled, hidden
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -126,4 +129,3 @@ model Photo {
 
   @@map("photos")
 }
-

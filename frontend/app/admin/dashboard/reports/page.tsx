@@ -29,10 +29,29 @@ interface ReportStats {
   topGifts: { title: string; total: number; count: number }[]
 }
 
+interface GiftSummary {
+  giftId: string
+  title: string
+  totalValue: number
+  quotaTotal: number
+  status: string
+  approvedTotal: number
+  approvedCount: number
+  pendingTotal: number
+  pendingCount: number
+  rejectedTotal: number
+  rejectedCount: number
+  remaining: number
+  progress: number
+  lastContributionAt: string | null
+}
+
 export default function ReportsPage() {
   const [contributions, setContributions] = useState<Contribution[]>([])
+  const [gifts, setGifts] = useState<GiftSummary[]>([])
   const [stats, setStats] = useState<ReportStats | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [dateFilter, setDateFilter] = useState({ start: '', end: '' })
   const [statusFilter, setStatusFilter] = useState('all')
 
@@ -42,14 +61,19 @@ export default function ReportsPage() {
 
   async function loadReports() {
     try {
+      setError('')
       const res = await fetch('/api/admin/reports')
-      if (res.ok) {
-        const data = await res.json()
-        setContributions(data.contributions || [])
-        setStats(data.stats || null)
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.error || 'Erro ao carregar relatórios')
       }
+
+      setContributions(data.contributions || [])
+      setGifts(data.gifts || [])
+      setStats(data.stats || null)
     } catch (error) {
       console.error('Erro ao carregar relatórios:', error)
+      setError(error instanceof Error ? error.message : 'Erro ao carregar relatórios')
     } finally {
       setLoading(false)
     }
@@ -104,6 +128,22 @@ export default function ReportsPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="w-8 h-8 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center">
+        <div className="text-4xl mb-4">⚠️</div>
+        <h2 className="text-xl font-semibold text-red-700 mb-2">Erro ao carregar relatórios</h2>
+        <p className="text-red-600 mb-4">{error}</p>
+        <button
+          onClick={() => { setLoading(true); loadReports() }}
+          className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg transition"
+        >
+          Tentar novamente
+        </button>
       </div>
     )
   }
@@ -201,6 +241,83 @@ export default function ReportsPage() {
           </div>
         </div>
       )}
+
+      {/* Gifts Summary */}
+      <div className="bg-white rounded-xl shadow-sm border border-yellow-100 overflow-hidden mb-6">
+        <div className="px-6 py-4 border-b border-yellow-100 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-800">Presentes Recebidos</h2>
+            <p className="text-sm text-gray-500">Resumo por presente (aprovados e pendentes)</p>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[900px]">
+            <thead className="bg-yellow-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Presente</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Arrecadado</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Pendente</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Faltam</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Progresso</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Última</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {gifts.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                    Nenhum presente com contribuições ainda
+                  </td>
+                </tr>
+              ) : (
+                gifts.map((g) => (
+                  <tr key={g.giftId} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 text-sm font-medium text-gray-800">
+                      <div>
+                        <p className="font-medium">{g.title}</p>
+                        <p className="text-xs text-gray-400">
+                          {g.approvedCount} aprovadas • {g.pendingCount} pendentes
+                        </p>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm font-medium text-green-600">
+                      {formatCurrency(Number(g.approvedTotal))}
+                    </td>
+                    <td className="px-6 py-4 text-sm font-medium text-yellow-700">
+                      {formatCurrency(Number(g.pendingTotal))}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {formatCurrency(Number(g.totalValue))}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {formatCurrency(Number(g.remaining))}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="w-40">
+                        <div className="flex justify-between text-xs text-gray-500 mb-1">
+                          <span>{Math.round(Number(g.progress) || 0)}%</span>
+                          <span className="text-gray-400">{g.status}</span>
+                        </div>
+                        <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-emerald-500 rounded-full"
+                            style={{ width: `${Math.max(0, Math.min(100, Number(g.progress) || 0))}%` }}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {g.lastContributionAt ? formatDate(g.lastContributionAt) : '-'}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm border border-yellow-100 p-4 mb-6">

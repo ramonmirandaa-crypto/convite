@@ -2,16 +2,18 @@ import { MercadoPagoConfig, Payment, Preference } from 'mercadopago'
 
 // Configuração do Mercado Pago
 export function getMercadoPagoClient(accessToken?: string) {
-  const token =
+  const token = (
     accessToken ||
     process.env.MERCADOPAGO_ACCESS_TOKEN ||
-    process.env.MP_ACCESS_TOKEN
-  
+    process.env.MP_ACCESS_TOKEN ||
+    ''
+  ).trim()
+
   if (!token) {
     throw new Error('Access token do Mercado Pago não configurado')
   }
 
-  return new MercadoPagoConfig({ 
+  return new MercadoPagoConfig({
     accessToken: token,
     options: {
       timeout: 5000,

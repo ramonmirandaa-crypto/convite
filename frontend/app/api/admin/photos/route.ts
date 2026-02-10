@@ -5,6 +5,8 @@ import { adminAuth } from '@/lib/adminAuth'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
 
+export const runtime = 'nodejs'
+
 const isVercel = process.env.VERCEL === '1'
 
 const createPhotoSchema = z.object({
@@ -71,6 +73,7 @@ export async function POST(request: NextRequest) {
 
     let photo: any
     if (isVercel) {
+      const nowIso = new Date().toISOString()
       const { data, error } = await getSupabaseAdmin()
         .from('photos')
         .insert({
@@ -81,7 +84,9 @@ export async function POST(request: NextRequest) {
           category: parsed.data.category,
           order: parsed.data.order,
           isActive: parsed.data.isActive ?? true,
-          updatedAt: new Date().toISOString(),
+          // Some DB setups might not have defaults; be explicit.
+          createdAt: nowIso,
+          updatedAt: nowIso,
         })
         .select()
         .single()
@@ -104,7 +109,12 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('Error creating photo:', error)
     return NextResponse.json(
-      { error: 'Erro ao criar foto', details: error?.message },
+      {
+        error: 'Erro ao criar foto',
+        details: error?.details || error?.message,
+        hint: error?.hint,
+        code: error?.code,
+      },
       { status: 500 }
     )
   }

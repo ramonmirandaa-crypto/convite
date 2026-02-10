@@ -10,6 +10,7 @@ interface Guest {
   phone: string | null
   confirmed: boolean
   guestCount: number
+  dietaryRestrictions: string | null
   suggestedSong: string | null
   qrCodeToken: string
   _count: {
@@ -126,8 +127,13 @@ export default function GuestsPage() {
                     </div>
                     <div>
                       <h3 className="font-medium text-gray-800">{guest.name}</h3>
+                      {guest.dietaryRestrictions && (
+                        <p className="text-xs text-gray-500 truncate max-w-xs">
+                          🍽️ {guest.dietaryRestrictions}
+                        </p>
+                      )}
                       {guest.suggestedSong && (
-                        <p className="text-xs text-gray-500">
+                        <p className="text-xs text-gray-500 truncate max-w-xs">
                           🎵 {guest.suggestedSong}
                         </p>
                       )}

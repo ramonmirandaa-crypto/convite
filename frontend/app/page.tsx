@@ -392,6 +392,39 @@ function EventSection({ event }: { event: EventData }) {
 // Seção de PIX
 function PixSection() {
   const [showPix, setShowPix] = useState(false)
+  const [paymentInfo, setPaymentInfo] = useState<{
+    pixKey: string
+    pixKeyType: string
+    coupleNames: string
+  }>({
+    pixKey: '',
+    pixKeyType: '',
+    coupleNames: '',
+  })
+  const [loadingPaymentInfo, setLoadingPaymentInfo] = useState(false)
+
+  useEffect(() => {
+    loadPaymentInfo()
+  }, [])
+
+  async function loadPaymentInfo() {
+    setLoadingPaymentInfo(true)
+    try {
+      const res = await fetch('/api/payment-info', { cache: 'no-store' })
+      if (res.ok) {
+        const data = await res.json()
+        setPaymentInfo({
+          pixKey: data.pixKey || '',
+          pixKeyType: data.pixKeyType || '',
+          coupleNames: data.coupleNames || '',
+        })
+      }
+    } catch (error) {
+      console.error('Erro ao carregar informações de pagamento:', error)
+    } finally {
+      setLoadingPaymentInfo(false)
+    }
+  }
 
   return (
     <section className="py-20 px-4 bg-gradient-to-r from-yellow-50 to-yellow-100/50">
@@ -408,27 +441,39 @@ function PixSection() {
         </p>
 
         {!showPix ? (
-          <button onClick={() => setShowPix(true)} className="btn-premium">
-            Ver Dados do PIX
+          <button
+            onClick={() => setShowPix(true)}
+            className="btn-premium"
+            disabled={loadingPaymentInfo}
+          >
+            {loadingPaymentInfo ? 'Carregando...' : 'Ver Dados do PIX'}
           </button>
         ) : (
           <div className="glass-light rounded-2xl p-8 max-w-md mx-auto animate-fadeIn">
-            <p className="text-sm text-gray-500 mb-2">Chave PIX</p>
-            <div className="flex items-center gap-3 justify-center mb-4">
-              <code className="bg-yellow-100 px-4 py-2 rounded-lg text-yellow-800 font-mono">
-                casamento.raianaeraphael@email.com
-              </code>
-              <button
-                onClick={() => navigator.clipboard.writeText('casamento.raianaeraphael@email.com')}
-                className="p-2 hover:bg-yellow-100 rounded-lg transition-colors"
-                title="Copiar"
-              >
-                <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-              </button>
-            </div>
-            <p className="text-xs text-gray-400 mb-4">Raiana & Raphael</p>
+            <p className="text-sm text-gray-500 mb-2">
+              Chave PIX {paymentInfo.pixKeyType ? `(${paymentInfo.pixKeyType})` : ''}
+            </p>
+
+            {paymentInfo.pixKey ? (
+              <div className="flex items-center gap-3 justify-center mb-4">
+                <code className="bg-yellow-100 px-4 py-2 rounded-lg text-yellow-800 font-mono break-all">
+                  {paymentInfo.pixKey}
+                </code>
+                <button
+                  onClick={() => navigator.clipboard.writeText(paymentInfo.pixKey)}
+                  className="p-2 hover:bg-yellow-100 rounded-lg transition-colors"
+                  title="Copiar"
+                >
+                  <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400 mb-4">Chave PIX não configurada</p>
+            )}
+
+            <p className="text-xs text-gray-400 mb-4">{paymentInfo.coupleNames || 'Raiana & Raphael'}</p>
             <button onClick={() => setShowPix(false)} className="text-yellow-600 hover:text-yellow-700 text-sm">
               Fechar
             </button>

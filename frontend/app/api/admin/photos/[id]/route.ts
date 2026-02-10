@@ -17,17 +17,18 @@ const updatePhotoSchema = z.object({
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = adminAuth(request)
   if (!auth.success) return auth.response!
 
   try {
+    const { id } = await params
     if (isVercel) {
       const { data, error } = await getSupabaseAdmin()
         .from('photos')
         .delete()
-        .eq('id', params.id)
+        .eq('id', id)
         .select('id')
 
       if (error) throw error
@@ -39,7 +40,7 @@ export async function DELETE(
       }
     } else {
       await prisma.photo.delete({
-        where: { id: params.id }
+        where: { id: id }
       })
     }
 
@@ -63,12 +64,13 @@ export async function DELETE(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = adminAuth(request)
   if (!auth.success) return auth.response!
 
   try {
+    const { id } = await params
     const data = await request.json()
     const normalized = {
       ...data,
@@ -104,7 +106,7 @@ export async function PATCH(
       const { data: updated, error } = await getSupabaseAdmin()
         .from('photos')
         .update(updateData)
-        .eq('id', params.id)
+        .eq('id', id)
         .select('*')
         .single()
       if (error) {
@@ -119,7 +121,7 @@ export async function PATCH(
       photo = updated
     } else {
       photo = await prisma.photo.update({
-        where: { id: params.id },
+        where: { id: id },
         data: updateData
       })
     }

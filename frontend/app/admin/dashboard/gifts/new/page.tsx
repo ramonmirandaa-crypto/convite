@@ -47,6 +47,7 @@ export default function NewGiftPage() {
         title: formData.get('title'),
         description: formData.get('description'),
         totalValue: parseFloat(formData.get('totalValue') as string),
+        quotaTotal: parseInt((formData.get('quotaTotal') as string) || '1', 10) || 1,
         imageUrl,
         status: formData.get('status')
       }
@@ -116,7 +117,7 @@ export default function NewGiftPage() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Valor (R$) *
@@ -132,6 +133,24 @@ export default function NewGiftPage() {
               />
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Total de Cotas *
+              </label>
+              <input
+                type="number"
+                name="quotaTotal"
+                min="1"
+                step="1"
+                defaultValue={10}
+                required
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent outline-none"
+                placeholder="10"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Cada cota = valor total dividido pelo total de cotas.
+              </p>
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Status

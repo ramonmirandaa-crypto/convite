@@ -11,6 +11,10 @@ const isVercel = process.env.VERCEL === '1'
 // Forçar rota dinâmica - usa request.url
 export const dynamic = 'force-dynamic'
 
+function toCents(value: number): number {
+  return Math.round((Number(value) || 0) * 100)
+}
+
 // GET /api/gifts - Listar todos os presentes (público)
 export async function GET(request: NextRequest) {
   try {
@@ -61,11 +65,28 @@ export async function GET(request: NextRequest) {
       }, 0)
 
       const { contributions: _, ...giftData } = gift
+
+      const totalCents = toCents(Number(gift.totalValue))
+      const receivedCents = toCents(totalReceived)
+      const remainingCents = Math.max(0, totalCents - receivedCents)
+
+      const quotaTotalRaw = Number(gift.quotaTotal || 1)
+      const quotaTotal = Number.isFinite(quotaTotalRaw) && quotaTotalRaw >= 1 ? Math.floor(quotaTotalRaw) : 1
+      const quotaValueCents = quotaTotal > 0 ? (totalCents / quotaTotal) : totalCents
+      const quotasConfigOk = quotaTotal > 0 && totalCents > 0 && totalCents % quotaTotal === 0
+      const quotaValue = quotasConfigOk ? (quotaValueCents / 100) : null
+      const quotasReceived = quotasConfigOk && quotaValueCents > 0 ? Math.floor(receivedCents / quotaValueCents) : null
+      const quotasRemaining = quotasConfigOk && quotaValueCents > 0 ? Math.floor(remainingCents / quotaValueCents) : null
+
       return {
         ...giftData,
         totalReceived,
         progress: Math.min(100, (totalReceived / Number(gift.totalValue)) * 100),
-        remaining: Math.max(0, Number(gift.totalValue) - totalReceived)
+        remaining: Math.max(0, Number(gift.totalValue) - totalReceived),
+        quotaTotal,
+        quotaValue,
+        quotasReceived,
+        quotasRemaining,
       }
     })
 

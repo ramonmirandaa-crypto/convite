@@ -34,6 +34,7 @@ export default function RSVP() {
         phone: formData.phone,
         guestCount: formData.guestCount,
         dietaryRestrictions: formData.dietaryRestrictions || undefined,
+        suggestedSong: formData.suggestedSong || undefined,
         message: formData.message || undefined,
       })
       setStatus('success')

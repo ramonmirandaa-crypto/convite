@@ -24,6 +24,7 @@ export function createRSVP(data: {
   phone?: string
   guestCount: number
   dietaryRestrictions?: string
+  suggestedSong?: string
   message?: string
 }) {
   return request('/rsvp', { method: 'POST', body: JSON.stringify(data) })
@@ -98,4 +99,8 @@ export interface Gift {
   progress: number
   remaining: number
   totalReceived?: number
+  quotaTotal?: number | null
+  quotaValue?: number | null
+  quotasRemaining?: number | null
+  quotasReceived?: number | null
 }

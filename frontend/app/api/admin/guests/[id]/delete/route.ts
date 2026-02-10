@@ -7,17 +7,18 @@ const isVercel = process.env.VERCEL === '1'
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const auth = adminAuth(request)
   if (!auth.success) return auth.response!
 
   try {
+    const { id } = await params
     if (isVercel) {
       const { data, error } = await getSupabaseAdmin()
         .from('guests')
         .delete()
-        .eq('id', params.id)
+        .eq('id', id)
         .select('id')
 
       if (error) throw error
@@ -29,7 +30,7 @@ export async function POST(
       }
     } else {
       await prisma.guest.delete({
-        where: { id: params.id }
+        where: { id: id }
       })
     }
 

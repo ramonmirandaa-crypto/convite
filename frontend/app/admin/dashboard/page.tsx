@@ -122,7 +122,7 @@ export default function DashboardPage() {
       subtitle: `R$ ${Number(stats.totalCollected).toFixed(2)}`,
       icon: '💰', 
       color: 'bg-green-100 text-green-700',
-      link: '#'
+      link: '/admin/dashboard/reports'
     },
     { 
       title: 'Mensagens', 

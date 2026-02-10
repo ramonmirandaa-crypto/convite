@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "gifts" ADD COLUMN "quotaTotal" INTEGER NOT NULL DEFAULT 1;
+

@@ -6,10 +6,10 @@ import { adminAuth } from '@/lib/adminAuth'
 // GET /api/gifts/:id - Buscar presente específico (público)
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    const { id } = await params
     const gift = await prisma.gift.findUnique({
       where: { id },
       include: {
@@ -53,14 +53,14 @@ export async function GET(
 // PUT /api/gifts/:id - Atualizar presente (admin)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // Verifica autenticação admin
   const auth = adminAuth(request)
   if (!auth.success) return auth.response!
 
   try {
-    const { id } = params
+    const { id } = await params
     const body = await request.json()
     const parsed = updateGiftSchema.safeParse(body)
     
@@ -94,14 +94,14 @@ export async function PUT(
 // DELETE /api/gifts/:id - Deletar presente (admin)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // Verifica autenticação admin
   const auth = adminAuth(request)
   if (!auth.success) return auth.response!
 
   try {
-    const { id } = params
+    const { id } = await params
     await prisma.gift.delete({
       where: { id }
     })

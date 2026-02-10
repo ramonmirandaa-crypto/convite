@@ -33,6 +33,3 @@ export function getSupabaseAdmin(): SupabaseClient {
 
   return cachedClient
 }
-
-// Exporta uma instância para compatibilidade com código existente
-export const supabaseAdmin = getSupabaseAdmin()

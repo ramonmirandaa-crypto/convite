@@ -12,6 +12,10 @@ const adminCreateGiftSchema = createGiftSchema.extend({
   status: z.enum(['available', 'hidden']).optional(),
 })
 
+function toCents(value: number): number {
+  return Math.round((Number(value) || 0) * 100)
+}
+
 // GET - Lista todos os presentes
 export async function GET(request: NextRequest) {
   const auth = adminAuth(request)
@@ -22,21 +26,48 @@ export async function GET(request: NextRequest) {
     if (isVercel) {
       const { data, error } = await getSupabaseAdmin()
         .from('gifts')
-        .select('*, contributions(*)')
+        .select('*, contributions(amount,paymentStatus)')
         .order('createdAt', { ascending: false })
       if (error) throw error
-      gifts = (data || []).map((gift: any) => ({
-        ...gift,
-        _count: { contributions: gift.contributions?.length || 0 }
-      }))
+      gifts = (data || []).map((gift: any) => {
+        const contributions = gift.contributions || []
+        const approved = contributions.filter((c: any) => c?.paymentStatus === 'approved')
+        const totalReceived = approved.reduce((sum: number, c: any) => sum + Number(c.amount), 0)
+
+        const { contributions: _, ...giftData } = gift
+        return {
+          ...giftData,
+          totalReceived,
+          progress: Math.min(100, (totalReceived / Number(gift.totalValue)) * 100),
+          remaining: Math.max(0, Number(gift.totalValue) - totalReceived),
+          _count: { contributions: contributions.length }
+        }
+      })
     } else {
       gifts = await prisma.gift.findMany({
         include: {
           _count: {
             select: { contributions: true }
-          }
+          },
+          contributions: {
+            where: { paymentStatus: 'approved' },
+            select: { amount: true }
+          },
         },
         orderBy: { createdAt: 'desc' }
+      })
+
+      gifts = (gifts || []).map((gift: any) => {
+        const approvedContributions = gift.contributions || []
+        const totalReceived = approvedContributions.reduce((sum: number, c: any) => sum + Number(c.amount), 0)
+
+        const { contributions: _, ...giftData } = gift
+        return {
+          ...giftData,
+          totalReceived,
+          progress: Math.min(100, (totalReceived / Number(gift.totalValue)) * 100),
+          remaining: Math.max(0, Number(gift.totalValue) - totalReceived),
+        }
       })
     }
 
@@ -62,6 +93,7 @@ export async function POST(request: NextRequest) {
       description: body?.description || undefined,
       imageUrl: body?.imageUrl || undefined,
       eventId: body?.eventId || undefined,
+      quotaTotal: body?.quotaTotal !== undefined ? Number(body.quotaTotal) : undefined,
     }
 
     const parsed = adminCreateGiftSchema.safeParse(normalized)
@@ -73,6 +105,18 @@ export async function POST(request: NextRequest) {
     }
 
     const { title, description, imageUrl, totalValue, eventId, status } = parsed.data
+    const quotaTotal = parsed.data.quotaTotal ?? 1
+
+    const totalCents = toCents(totalValue)
+    if (quotaTotal < 1) {
+      return NextResponse.json({ error: 'Quantidade de cotas inválida' }, { status: 400 })
+    }
+    if (totalCents % quotaTotal !== 0) {
+      return NextResponse.json(
+        { error: 'Valor total deve ser divisível pela quantidade de cotas (em centavos). Ajuste o valor ou as cotas.' },
+        { status: 400 }
+      )
+    }
 
     // Define eventId alvo (se não vier no body, usa o primeiro evento)
     let targetEventId = eventId
@@ -116,6 +160,7 @@ export async function POST(request: NextRequest) {
           description: description || null,
           imageUrl: imageUrl || null,
           totalValue,
+          quotaTotal,
           status: status || 'available',
           updatedAt: new Date().toISOString(),
         })
@@ -131,6 +176,7 @@ export async function POST(request: NextRequest) {
           description: description || null,
           imageUrl: imageUrl || null,
           totalValue,
+          quotaTotal,
           status: status || 'available',
         }
       })

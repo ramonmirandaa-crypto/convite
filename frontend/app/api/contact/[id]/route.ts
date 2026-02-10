@@ -5,14 +5,14 @@ import { adminAuth } from '@/lib/adminAuth'
 // GET /api/contact/:id - Buscar mensagem específica (admin)
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // Verifica autenticação admin
   const auth = adminAuth(request)
   if (!auth.success) return auth.response!
 
   try {
-    const { id } = params
+    const { id } = await params
     const contact = await prisma.contactMessage.findUnique({ where: { id } })
 
     if (!contact) {
