@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { adminAuth } from '@/lib/adminAuth'
 
 const isVercel = process.env.VERCEL === '1'
@@ -40,10 +40,10 @@ export async function POST(request: NextRequest) {
     if (isVercel) {
       // --- Supabase path ---
       // Upsert event
-      const { data: existing } = await supabaseAdmin.from('events').select('id').limit(1).single()
+      const { data: existing } = await getSupabaseAdmin().from('events').select('id').limit(1).single()
 
       if (existing) {
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await getSupabaseAdmin()
           .from('events')
           .update({ ...eventData, updatedAt: new Date().toISOString() })
           .eq('id', existing.id)
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
         if (error) throw error
         event = data
       } else {
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await getSupabaseAdmin()
           .from('events')
           .insert({ ...eventData, date: new Date(eventData.date).toISOString() })
           .select()
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
       }
 
       // Add photos if none exist
-      const { count } = await supabaseAdmin.from('photos').select('*', { count: 'exact', head: true })
+      const { count } = await getSupabaseAdmin().from('photos').select('*', { count: 'exact', head: true })
 
       if ((count ?? 0) === 0) {
         const rows = photoFiles.map((p, i) => ({
@@ -73,20 +73,20 @@ export async function POST(request: NextRequest) {
           order: i,
           isActive: true,
         }))
-        const { error } = await supabaseAdmin.from('photos').insert(rows)
+        const { error } = await getSupabaseAdmin().from('photos').insert(rows)
         if (error) throw error
         photosAdded = rows.length
       }
 
       // Migrate old /images/ paths → /Fotos/
-      const { data: oldPhotos } = await supabaseAdmin
+      const { data: oldPhotos } = await getSupabaseAdmin()
         .from('photos')
         .select('id, imageUrl')
         .like('imageUrl', '/images/%')
 
       if (oldPhotos && oldPhotos.length > 0) {
         for (const photo of oldPhotos) {
-          await supabaseAdmin
+          await getSupabaseAdmin()
             .from('photos')
             .update({ imageUrl: photo.imageUrl.replace('/images/', '/Fotos/') })
             .eq('id', photo.id)

@@ -21,9 +21,9 @@ Exemplo:
 postgresql://postgres:[PASSWORD]@db.abcdefg.supabase.co:5432/postgres
 ```
 
-4. No SQL Editor, execute o script `setup-supabase.sql`:
-   - Copie o conteúdo do arquivo `/root/convite/setup-supabase.sql`
-   - Cole no SQL Editor e execute
+4. Crie as tabelas no Supabase (escolha **uma** opção):
+   - **Opção A (Recomendado):** rodar migrations do Prisma (`npx prisma migrate deploy`) e depois o seed (`npx prisma db seed`)
+   - **Opção B (SQL Editor):** execute o script `setup-supabase.sql` (arquivo `/root/convite/setup-supabase.sql`)
 
 ### 2. Conectar Vercel ao Supabase
 
@@ -57,7 +57,7 @@ NODE_ENV=production
 
 2. Clique em **Deploy**
 
-3. Após o deploy, execute as migrações:
+3. Se você escolheu a **Opção A (Prisma)** acima, após o deploy execute as migrações:
    ```bash
    # Instale o Vercel CLI
    npm i -g vercel

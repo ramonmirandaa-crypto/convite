@@ -19,12 +19,24 @@ export function getMercadoPagoClient(accessToken?: string) {
   })
 }
 
-function getWebhookUrl(): string {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+function getWebhookUrl(): string | undefined {
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : undefined)
+
   if (!appUrl) {
-    // Isso evita criar pagamentos com notification_url inválida (o MP rejeita ou não notifica).
-    throw new Error('NEXT_PUBLIC_APP_URL não configurado (necessário para o webhook do Mercado Pago)')
+    // Sem URL pública, omite notification_url. O pagamento funciona,
+    // mas não receberemos webhooks — o polling de status ainda funciona.
+    console.warn('[MP] NEXT_PUBLIC_APP_URL não configurado — webhook de pagamento desabilitado')
+    return undefined
   }
+
+  // Garante que não envia localhost (MP rejeita URLs não-públicas)
+  if (appUrl.includes('localhost') || appUrl.includes('127.0.0.1')) {
+    console.warn('[MP] NEXT_PUBLIC_APP_URL aponta para localhost — webhook omitido')
+    return undefined
+  }
+
   return `${appUrl}/api/payments/webhook`
 }
 
@@ -57,25 +69,27 @@ export async function createPixPayment(data: CreatePixPaymentData, accessToken?:
   const client = getMercadoPagoClient(accessToken)
   const payment = new Payment(client)
 
-  const result = await payment.create({
-    body: {
-      transaction_amount: data.amount,
-      description: data.description,
-      payment_method_id: 'pix',
-      payer: {
-        email: data.payerEmail,
-        first_name: data.payerName.split(' ')[0],
-        last_name: data.payerName.split(' ').slice(1).join(' ') || ' ',
-        identification: {
-          type: 'CPF',
-          number: data.payerCPF.replace(/\D/g, ''),
-        },
+  const webhookUrl = getWebhookUrl()
+  const body: any = {
+    transaction_amount: data.amount,
+    description: data.description,
+    payment_method_id: 'pix',
+    payer: {
+      email: data.payerEmail,
+      first_name: data.payerName.split(' ')[0],
+      last_name: data.payerName.split(' ').slice(1).join(' ') || ' ',
+      identification: {
+        type: 'CPF',
+        number: data.payerCPF.replace(/\D/g, ''),
       },
-      external_reference: data.externalReference,
-      notification_url: getWebhookUrl(),
     },
-  })
+    external_reference: data.externalReference,
+  }
+  if (webhookUrl) {
+    body.notification_url = webhookUrl
+  }
 
+  const result = await payment.create({ body })
   return result
 }
 
@@ -84,28 +98,30 @@ export async function createCardPayment(data: CreateCardPaymentData, accessToken
   const client = getMercadoPagoClient(accessToken)
   const payment = new Payment(client)
 
-  const result = await payment.create({
-    body: {
-      transaction_amount: data.amount,
-      description: data.description,
-      payment_method_id: data.paymentMethodId,
-      token: data.token,
-      installments: data.installments,
-      issuer_id: data.issuerId ? parseInt(data.issuerId, 10) : undefined,
-      payer: {
-        email: data.payerEmail,
-        first_name: data.payerName.split(' ')[0],
-        last_name: data.payerName.split(' ').slice(1).join(' ') || ' ',
-        identification: {
-          type: 'CPF',
-          number: data.payerCPF.replace(/\D/g, ''),
-        },
+  const webhookUrl = getWebhookUrl()
+  const body: any = {
+    transaction_amount: data.amount,
+    description: data.description,
+    payment_method_id: data.paymentMethodId,
+    token: data.token,
+    installments: data.installments,
+    issuer_id: data.issuerId ? parseInt(data.issuerId, 10) : undefined,
+    payer: {
+      email: data.payerEmail,
+      first_name: data.payerName.split(' ')[0],
+      last_name: data.payerName.split(' ').slice(1).join(' ') || ' ',
+      identification: {
+        type: 'CPF',
+        number: data.payerCPF.replace(/\D/g, ''),
       },
-      external_reference: data.externalReference,
-      notification_url: getWebhookUrl(),
     },
-  })
+    external_reference: data.externalReference,
+  }
+  if (webhookUrl) {
+    body.notification_url = webhookUrl
+  }
 
+  const result = await payment.create({ body })
   return result
 }
 
@@ -114,7 +130,13 @@ export async function getPaymentStatus(paymentId: string, accessToken?: string) 
   const client = getMercadoPagoClient(accessToken)
   const payment = new Payment(client)
 
-  const result = await payment.get({ id: paymentId })
+  // O SDK do MP espera id como string, mas garante que é um ID válido
+  const cleanId = paymentId.trim()
+  if (!cleanId || cleanId.startsWith('pending_')) {
+    throw new Error('ID de pagamento inválido ou pendente')
+  }
+
+  const result = await payment.get({ id: cleanId })
   return result
 }
 

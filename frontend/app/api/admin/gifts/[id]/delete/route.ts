@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { adminAuth } from '@/lib/adminAuth'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 
 const isVercel = process.env.VERCEL === '1'
 
@@ -14,7 +14,7 @@ export async function POST(
 
   try {
     if (isVercel) {
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await getSupabaseAdmin()
         .from('gifts')
         .delete()
         .eq('id', params.id)

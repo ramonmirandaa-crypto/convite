@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { adminAuth } from '@/lib/adminAuth'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { z } from 'zod'
 
 const isVercel = process.env.VERCEL === '1'
@@ -24,7 +24,7 @@ export async function DELETE(
 
   try {
     if (isVercel) {
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await getSupabaseAdmin()
         .from('photos')
         .delete()
         .eq('id', params.id)
@@ -101,7 +101,7 @@ export async function PATCH(
     let photo: any
     if (isVercel) {
       updateData.updatedAt = new Date().toISOString()
-      const { data: updated, error } = await supabaseAdmin
+      const { data: updated, error } = await getSupabaseAdmin()
         .from('photos')
         .update(updateData)
         .eq('id', params.id)

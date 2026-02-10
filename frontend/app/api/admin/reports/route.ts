@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { adminAuth } from '@/lib/adminAuth'
 
 const isVercel = process.env.VERCEL === '1'
@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   try {
     let contributions
     if (isVercel) {
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await getSupabaseAdmin()
         .from('contributions')
         .select('*, gift:gifts(title), guest:guests(name, email)')
         .order('createdAt', { ascending: false })

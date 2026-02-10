@@ -81,18 +81,8 @@ function HeroSection({ eventDate }: { eventDate: string }) {
   const { photos: couplePhotos, loading } = useCouplePhotos(5)
   const [currentPhoto, setCurrentPhoto] = useState(0)
 
-  // Fotos padrão de fallback (hardcoded caso não tenha no painel)
-  const fallbackPhotos = [
-    '/Fotos/IMG_0544.png',
-    '/Fotos/IMG_0548.jpeg',
-    '/Fotos/IMG_0549.jpeg',
-    '/Fotos/IMG_0550.jpeg',
-  ]
-
-  // Usa fotos do painel ou fallback
-  const mainPhotos = couplePhotos.length > 0 
-    ? couplePhotos.map(p => p.imageUrl)
-    : fallbackPhotos
+  // Fotos vindas do painel de controle
+  const mainPhotos = couplePhotos.map(p => p.imageUrl)
 
   useEffect(() => {
     if (mainPhotos.length > 1) {
@@ -132,7 +122,11 @@ function HeroSection({ eventDate }: { eventDate: string }) {
           <div className="relative w-64 h-64 md:w-80 md:h-80 lg:w-96 lg:h-96 flex-shrink-0 fade-in-up fade-in-up-delay-1">
             <div className="absolute inset-0 rounded-full bg-gradient-to-br from-yellow-300 via-yellow-400 to-yellow-600 p-1">
               <div className="w-full h-full rounded-full overflow-hidden border-4 border-white shadow-2xl">
-                {!loading && (
+                {loading ? (
+                  <div className="w-full h-full bg-gradient-to-br from-yellow-100 to-yellow-200 flex items-center justify-center">
+                    <div className="w-10 h-10 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : mainPhotos.length > 0 ? (
                   <Image
                     src={mainPhotos[currentPhoto]}
                     alt="Raiana e Raphael"
@@ -140,6 +134,10 @@ function HeroSection({ eventDate }: { eventDate: string }) {
                     className="object-cover transition-opacity duration-1000"
                     priority
                   />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-yellow-100 to-yellow-300 flex items-center justify-center">
+                    <span className="text-6xl">💍</span>
+                  </div>
                 )}
               </div>
             </div>
@@ -218,17 +216,7 @@ function HeroSection({ eventDate }: { eventDate: string }) {
 function PhotosSection() {
   const { photos: galleryPhotos, loading } = useGalleryPhotos(4)
 
-  // Fotos padrão de fallback
-  const fallbackPhotos = [
-    { src: '/Fotos/5e17a544-5f8d-4169-b912-6ac1de30787f.jpeg', title: 'Amor' },
-    { src: '/Fotos/603d0296-8ce6-47ba-8576-05bda785aa80.jpeg', title: 'Carinho' },
-    { src: '/Fotos/67695956-b0e1-4c97-a7ba-f37006a2a9ab.jpeg', title: 'Ternura' },
-    { src: '/Fotos/9a046fed-3acc-41c3-902e-d7e5f17fc680.jpeg', title: 'Paixão' },
-  ]
-
-  const photos = galleryPhotos.length > 0
-    ? galleryPhotos.map(p => ({ src: p.imageUrl, title: p.title }))
-    : fallbackPhotos
+  const photos = galleryPhotos.map(p => ({ src: p.imageUrl, title: p.title }))
 
   return (
     <section className="py-20 px-4 bg-white">
@@ -242,7 +230,7 @@ function PhotosSection() {
           <div className="flex items-center justify-center py-12">
             <div className="w-12 h-12 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : (
+        ) : photos.length > 0 ? (
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {photos.map((photo, index) => (
               <div
@@ -262,7 +250,7 @@ function PhotosSection() {
               </div>
             ))}
           </div>
-        )}
+        ) : null}
 
         <div className="text-center mt-10">
           <Link href="/gallery" className="inline-flex items-center gap-2 text-yellow-600 hover:text-yellow-700 font-medium transition-colors">
@@ -280,9 +268,7 @@ function PhotosSection() {
 // Seção da História
 function StorySection() {
   const { photos: couplePhotos } = useCouplePhotos(1)
-  const storyImage = couplePhotos.length > 0 
-    ? couplePhotos[0].imageUrl 
-    : '/Fotos/IMG_0549.jpeg'
+  const storyImage = couplePhotos.length > 0 ? couplePhotos[0].imageUrl : null
 
   return (
     <section className="py-24 px-4 bg-gradient-to-b from-white to-yellow-50/30">
@@ -290,12 +276,18 @@ function StorySection() {
         <div className="grid md:grid-cols-2 gap-12 items-center">
           <div className="relative">
             <div className="relative aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl">
-              <Image
-                src={storyImage}
-                alt="Raiana e Raphael"
-                fill
-                className="object-cover"
-              />
+              {storyImage ? (
+                <Image
+                  src={storyImage}
+                  alt="Raiana e Raphael"
+                  fill
+                  className="object-cover"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-yellow-100 to-yellow-300 flex items-center justify-center">
+                  <span className="text-7xl">💛</span>
+                </div>
+              )}
             </div>
             <div className="absolute -bottom-6 -right-6 w-48 h-48 border-2 border-yellow-400 rounded-2xl -z-10" />
             <div className="absolute -top-6 -left-6 w-32 h-32 bg-yellow-200/50 rounded-2xl -z-10" />

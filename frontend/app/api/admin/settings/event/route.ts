@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { supabase } from '@/lib/supabase'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { adminAuth } from '@/lib/adminAuth'
 import { randomUUID } from 'crypto'
 
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   try {
     let event
     if (isVercel) {
-      const { data, error } = await supabaseAdmin.from('events').select('*').single()
+      const { data, error } = await getSupabaseAdmin().from('events').select('*').single()
       if (error) throw error
       event = data
     } else {
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
     let event
     if (isVercel) {
       // Busca o primeiro evento
-      const { data: existingEvent, error: findError } = await supabaseAdmin
+      const { data: existingEvent, error: findError } = await getSupabaseAdmin()
         .from('events')
         .select('id')
         .single()
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
 
       if (existingEvent) {
         // Atualiza
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await getSupabaseAdmin()
           .from('events')
           .update(eventData)
           .eq('id', existingEvent.id)
@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
         event = data
       } else {
         // Cria novo
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await getSupabaseAdmin()
           .from('events')
           .insert({ id: randomUUID(), ...eventData })
           .select()

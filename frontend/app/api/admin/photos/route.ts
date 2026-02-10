@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { adminAuth } from '@/lib/adminAuth'
 import { z } from 'zod'
 import { randomUUID } from 'crypto'
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
   try {
     let photos
     if (isVercel) {
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await getSupabaseAdmin()
         .from('photos')
         .select('*')
         .order('createdAt', { ascending: false })
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     let photo: any
     if (isVercel) {
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await getSupabaseAdmin()
         .from('photos')
         .insert({
           id: randomUUID(),

@@ -51,6 +51,21 @@ openssl rand -base64 32
 
 ---
 
+### 3.1. (Opcional) Storage Para Upload de Imagens (Admin)
+
+Se você quer **enviar imagens direto pelo painel de admin** (sem colar link), configure o Supabase Storage:
+
+1. No Supabase, vá em **Storage** (menu lateral)
+2. Clique em **New bucket**
+3. Crie um bucket chamado `photos` e marque como **Public**
+
+Opcional (se quiser outro nome/pasta):
+
+- `SUPABASE_STORAGE_BUCKET`: nome do bucket (padrão: `photos`)
+- `SUPABASE_STORAGE_PREFIX`: pasta dentro do bucket (padrão: `uploads`)
+
+---
+
 ### 4. Executar Migrations
 
 #### Opção A: Local (Recomendado)

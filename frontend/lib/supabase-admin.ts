@@ -1,21 +1,38 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+let cachedClient: SupabaseClient | null = null
 
-if (!supabaseUrl || !supabaseServiceKey) {
-  console.warn('[Supabase Admin] Service role key not configured. Admin operations may fail if RLS is enabled.')
+export function getSupabaseAdmin(): SupabaseClient {
+  // Retorna cliente cacheado se existir
+  if (cachedClient) {
+    return cachedClient
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL
+  const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    console.error('[Supabase Admin] Service role key not configured!')
+    console.error('[Supabase Admin] URL exists:', !!supabaseUrl)
+    console.error('[Supabase Admin] Key exists:', !!supabaseServiceKey)
+    throw new Error('Supabase service role key not configured')
+  }
+
+  // Cria o cliente com service role key
+  // O service role automaticamente bypassa o RLS no Supabase
+  cachedClient = createClient(
+    supabaseUrl,
+    supabaseServiceKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    }
+  )
+
+  return cachedClient
 }
 
-// Placeholder values allow the module to load at build time without crashing.
-// The client is only used when isVercel=true (i.e. SUPABASE_SERVICE_ROLE_KEY is set).
-export const supabaseAdmin = createClient(
-  supabaseUrl || 'https://placeholder.supabase.co',
-  supabaseServiceKey || 'placeholder-key-for-build',
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-)
+// Exporta uma instância para compatibilidade com código existente
+export const supabaseAdmin = getSupabaseAdmin()

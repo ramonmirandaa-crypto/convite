@@ -4,6 +4,7 @@ import { useState, ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { useCouplePhotos } from '@/lib/usePhotos'
 
 const menuItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
@@ -24,6 +25,10 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname()
   const router = useRouter()
 
+  // Usa as fotos do casal configuradas no painel (categoria "couple").
+  const { photos: couplePhotos } = useCouplePhotos(1)
+  const avatarUrl = couplePhotos.length > 0 ? couplePhotos[0].imageUrl : null
+
   const handleLogout = async () => {
     try {
       await fetch('/api/admin/logout', { method: 'POST' })
@@ -43,13 +48,19 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="p-6 border-b border-yellow-100">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full overflow-hidden border-2 border-yellow-400 flex-shrink-0 relative">
-              <Image
-                src="/Fotos/IMG_0549.jpeg"
-                alt="Raiana e Raphael"
-                fill
-                className="object-cover"
-                sizes="40px"
-              />
+              {avatarUrl ? (
+                <Image
+                  src={avatarUrl}
+                  alt="Raiana e Raphael"
+                  fill
+                  className="object-cover"
+                  sizes="40px"
+                />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-yellow-100 to-yellow-300 flex items-center justify-center">
+                  <span className="text-lg">💍</span>
+                </div>
+              )}
             </div>
             {sidebarOpen && (
               <div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { listGifts, Gift } from '@/lib/api'
 import Image from 'next/image'
 import { MercadoPagoProvider } from '@/lib/mercadopago-js'
@@ -36,6 +36,17 @@ function PaymentModal({ gift, publicKey, onClose, onSuccess }: PaymentModalProps
   } | null>(null)
   const [error, setError] = useState('')
   const [contributionId, setContributionId] = useState('')
+  const [waitingMessage, setWaitingMessage] = useState('')
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const pollingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Limpa polling ao desmontar o componente
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current)
+      if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current)
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -86,6 +97,9 @@ function PaymentModal({ gift, publicKey, onClose, onSuccess }: PaymentModalProps
             copyPasteCode: data.pix.copyPasteCode,
             paymentId: data.payment.id,
           })
+        } else {
+          // Se não tem dados do PIX, mostra erro
+          throw new Error('Erro ao gerar QR Code PIX. Tente novamente ou use outro método de pagamento.')
         }
         setStep('pix')
         
@@ -98,7 +112,7 @@ function PaymentModal({ gift, publicKey, onClose, onSuccess }: PaymentModalProps
     }
   }
 
-  const handleCardPayment = async (cardToken: string, paymentMethodId: string, installments: number) => {
+  const handleCardPayment = async (cardToken: string, paymentMethodId: string, installments: number, issuerId?: string) => {
     setStep('loading')
     setError('')
 
@@ -119,6 +133,7 @@ function PaymentModal({ gift, publicKey, onClose, onSuccess }: PaymentModalProps
           cardToken,
           installments,
           paymentMethodId,
+          issuerId,
         }),
       })
 
@@ -130,9 +145,34 @@ function PaymentModal({ gift, publicKey, onClose, onSuccess }: PaymentModalProps
 
       setContributionId(data.contribution.id)
 
-      if (data.payment?.status === 'approved') {
+      const status = data.payment?.status
+      if (status === 'approved') {
         setStep('success')
         setTimeout(onSuccess, 2000)
+      } else if (status === 'in_process' || status === 'pending') {
+        // Cartão pode ficar em análise - inicia polling
+        startPolling(data.contribution.id)
+        setStep('pix') // Reutiliza tela de aguardando com mensagem adequada
+        setPixData(null) // Sem QR code - apenas mensagem de aguardando
+      } else if (status === 'rejected') {
+        const detail = data.payment?.statusDetail || ''
+        const rejectionMessages: Record<string, string> = {
+          cc_rejected_bad_filled_card_number: 'Número do cartão incorreto.',
+          cc_rejected_bad_filled_date: 'Data de validade incorreta.',
+          cc_rejected_bad_filled_other: 'Verifique os dados do cartão.',
+          cc_rejected_bad_filled_security_code: 'Código de segurança incorreto.',
+          cc_rejected_blacklist: 'Pagamento não pôde ser processado.',
+          cc_rejected_call_for_authorize: 'Ligue para a operadora do cartão para autorizar.',
+          cc_rejected_card_disabled: 'Cartão desativado. Ligue para a operadora.',
+          cc_rejected_duplicated_payment: 'Pagamento duplicado. Aguarde alguns minutos.',
+          cc_rejected_high_risk: 'Pagamento recusado por segurança. Tente outro método.',
+          cc_rejected_insufficient_amount: 'Saldo insuficiente no cartão.',
+          cc_rejected_max_attempts: 'Limite de tentativas atingido. Tente outro cartão.',
+          cc_rejected_other_reason: 'Pagamento recusado pela operadora.',
+        }
+        const message = rejectionMessages[detail] || 'Pagamento não aprovado. Tente novamente com outro cartão ou método.'
+        setStep('form')
+        setError(message)
       } else {
         setStep('form')
         setError('Pagamento não aprovado. Tente novamente.')
@@ -144,6 +184,10 @@ function PaymentModal({ gift, publicKey, onClose, onSuccess }: PaymentModalProps
   }
 
   const startPolling = (id: string) => {
+    // Limpa polling anterior se existir
+    if (pollingRef.current) clearInterval(pollingRef.current)
+    if (pollingTimeoutRef.current) clearTimeout(pollingTimeoutRef.current)
+
     const interval = setInterval(async () => {
       try {
         const res = await fetch(`/api/payments/status/${id}`)
@@ -151,19 +195,30 @@ function PaymentModal({ gift, publicKey, onClose, onSuccess }: PaymentModalProps
 
         if (data.status === 'approved') {
           clearInterval(interval)
+          pollingRef.current = null
           setStep('success')
           setTimeout(() => {
             onSuccess()
             onClose()
           }, 2000)
+        } else if (data.status === 'rejected' || data.status === 'cancelled') {
+          clearInterval(interval)
+          pollingRef.current = null
+          setStep('form')
+          setError('Pagamento foi recusado ou cancelado. Tente novamente.')
         }
       } catch (error) {
         console.error('Erro ao verificar status:', error)
       }
-    }, 5000) // Verifica a cada 5 segundos
+    }, 5000)
+
+    pollingRef.current = interval
 
     // Para após 10 minutos
-    setTimeout(() => clearInterval(interval), 10 * 60 * 1000)
+    pollingTimeoutRef.current = setTimeout(() => {
+      clearInterval(interval)
+      pollingRef.current = null
+    }, 10 * 60 * 1000)
   }
 
   const copyPixCode = () => {
@@ -198,58 +253,81 @@ function PaymentModal({ gift, publicKey, onClose, onSuccess }: PaymentModalProps
     )
   }
 
-  if (step === 'pix' && pixData) {
+  if (step === 'pix') {
+    // Tela de aguardando - pode ser PIX (com QR) ou cartão em análise (sem QR)
+    const isCardProcessing = !pixData
     return (
       <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
         <div className="bg-white rounded-2xl p-8 max-w-md w-full">
           <div className="text-center mb-6">
-            <h3 className="text-2xl font-serif text-gray-800 mb-2">Pagamento PIX</h3>
-            <p className="text-gray-500 text-sm">Escaneie o QR Code ou copie o código</p>
+            <h3 className="text-2xl font-serif text-gray-800 mb-2">
+              {isCardProcessing ? 'Pagamento em Análise' : 'Pagamento PIX'}
+            </h3>
+            <p className="text-gray-500 text-sm">
+              {isCardProcessing
+                ? 'Seu pagamento está sendo analisado. Isso pode levar alguns instantes.'
+                : 'Escaneie o QR Code ou copie o código'}
+            </p>
           </div>
 
           <div className="flex flex-col items-center gap-6">
-            {/* QR Code */}
-            <div className="bg-white p-4 rounded-xl border-2 border-yellow-200">
-              {pixData.qrCodeBase64 ? (
-                <img 
-                  src={`data:image/png;base64,${pixData.qrCodeBase64}`} 
-                  alt="QR Code PIX" 
-                  className="w-48 h-48"
-                />
-              ) : (
-                <div className="w-48 h-48 bg-yellow-50 flex items-center justify-center">
-                  <img src={pixData.qrCode} alt="QR Code PIX" className="w-44 h-44" />
+            {/* QR Code - só para PIX */}
+            {pixData && (
+              <>
+                <div className="bg-white p-4 rounded-xl border-2 border-yellow-200">
+                  {pixData.qrCodeBase64 ? (
+                    <img
+                      src={`data:image/png;base64,${pixData.qrCodeBase64}`}
+                      alt="QR Code PIX"
+                      className="w-48 h-48"
+                    />
+                  ) : pixData.qrCode ? (
+                    <div className="w-48 h-48 bg-yellow-50 flex items-center justify-center">
+                      <img src={pixData.qrCode} alt="QR Code PIX" className="w-44 h-44" />
+                    </div>
+                  ) : null}
                 </div>
-              )}
-            </div>
 
-            {/* Código Copia e Cola */}
-            <div className="w-full">
-              <p className="text-sm text-gray-500 mb-2">Código Copia e Cola:</p>
-              <div className="flex gap-2">
-                <code className="flex-1 bg-gray-100 p-3 rounded-lg text-xs break-all">
-                  {pixData.copyPasteCode.substring(0, 50)}...
-                </code>
-                <button
-                  onClick={copyPixCode}
-                  className="px-4 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition"
-                >
-                  Copiar
-                </button>
+                {/* Código Copia e Cola */}
+                {pixData.copyPasteCode && (
+                  <div className="w-full">
+                    <p className="text-sm text-gray-500 mb-2">Código Copia e Cola:</p>
+                    <div className="flex gap-2">
+                      <code className="flex-1 bg-gray-100 p-3 rounded-lg text-xs break-all">
+                        {pixData.copyPasteCode.substring(0, 50)}...
+                      </code>
+                      <button
+                        onClick={copyPixCode}
+                        className="px-4 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition"
+                      >
+                        Copiar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Ícone de processamento para cartão */}
+            {isCardProcessing && (
+              <div className="w-20 h-20 bg-yellow-50 rounded-full flex items-center justify-center">
+                <div className="w-10 h-10 border-3 border-yellow-400 border-t-transparent rounded-full animate-spin" />
               </div>
-            </div>
+            )}
 
             {/* Status */}
             <div className="flex items-center gap-2 text-yellow-600">
               <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
-              <span className="text-sm">Aguardando pagamento...</span>
+              <span className="text-sm">
+                {isCardProcessing ? 'Aguardando confirmação...' : 'Aguardando pagamento...'}
+              </span>
             </div>
 
             <button
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700 text-sm"
             >
-              Fechar (pode pagar depois)
+              {isCardProcessing ? 'Fechar (será notificado por email)' : 'Fechar (pode pagar depois)'}
             </button>
           </div>
         </div>
@@ -542,21 +620,32 @@ function GiftCard({ gift, onContribute }: { gift: Gift; onContribute: (gift: Gif
   )
 }
 
+interface PaymentInfo {
+  pixKey: string
+  pixKeyType: string
+  coupleNames: string
+}
+
 export default function Gifts() {
   const [gifts, setGifts] = useState<Gift[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedGift, setSelectedGift] = useState<Gift | null>(null)
   const [mpPublicKey, setMpPublicKey] = useState('')
+  const [paymentInfo, setPaymentInfo] = useState<PaymentInfo>({
+    pixKey: '',
+    pixKeyType: '',
+    coupleNames: 'Raiana & Raphael'
+  })
   
+  // Usa as fotos do casal configuradas no painel (categoria "couple").
   const { photos: couplePhotos } = useCouplePhotos(1)
-  const headerImage = couplePhotos.length > 0 
-    ? couplePhotos[0].imageUrl 
-    : '/Fotos/IMG_0544.png'
+  const headerImage = couplePhotos.length > 0 ? couplePhotos[0].imageUrl : null
 
   useEffect(() => {
     loadGifts()
     loadMpConfig()
+    loadPaymentInfo()
   }, [])
 
   async function loadGifts() {
@@ -585,6 +674,22 @@ export default function Gifts() {
     }
   }
 
+  async function loadPaymentInfo() {
+    try {
+      const res = await fetch('/api/payment-info')
+      if (res.ok) {
+        const data = await res.json()
+        setPaymentInfo({
+          pixKey: data.pixKey || '',
+          pixKeyType: data.pixKeyType || '',
+          coupleNames: data.coupleNames || 'Raiana & Raphael'
+        })
+      }
+    } catch (error) {
+      console.error('Erro ao carregar informações de pagamento:', error)
+    }
+  }
+
   const availableCount = gifts.filter(g => g.status === 'available').length
   const fulfilledCount = gifts.filter(g => g.status === 'fulfilled').length
 
@@ -592,24 +697,32 @@ export default function Gifts() {
     <main className="min-h-screen bg-[#FDF8F3]">
       {/* Header */}
       <section className="relative pt-24 pb-12 px-4">
-        <div className="absolute inset-0 bg-[url('/Fotos/IMG_0550.jpeg')] bg-cover bg-center opacity-5" />
+        {headerImage && (
+          <div className="absolute inset-0 bg-cover bg-center opacity-5" style={{ backgroundImage: `url(${headerImage})` }} />
+        )}
         <div className="absolute inset-0 bg-gradient-to-b from-[#FDF8F3] via-[#FDF8F3]/95 to-[#FDF8F3]" />
-        
+
         <div className="relative z-10 max-w-4xl mx-auto text-center">
           <div className="w-24 h-24 mx-auto mb-6 rounded-full overflow-hidden border-4 border-yellow-400 shadow-lg">
-            <Image
-              src={headerImage}
-              alt="Raiana e Raphael"
-              width={96}
-              height={96}
-              className="object-cover w-full h-full"
-            />
+            {headerImage ? (
+              <Image
+                src={headerImage}
+                alt="Raiana e Raphael"
+                width={96}
+                height={96}
+                className="object-cover w-full h-full"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-yellow-100 to-yellow-300 flex items-center justify-center">
+                <span className="text-3xl">🎁</span>
+              </div>
+            )}
           </div>
           <p className="text-yellow-600 text-sm uppercase tracking-[0.3em] mb-4">
             Lista de Presentes
           </p>
           <h1 className="text-4xl md:text-5xl font-serif text-gray-800 mb-4">
-            Raiana & Raphael
+            {paymentInfo.coupleNames || 'Raiana & Raphael'}
           </h1>
           <p className="text-gray-500 max-w-2xl mx-auto">
             Sua presença é nosso maior presente! Mas se quiser nos presentear, 
@@ -697,22 +810,28 @@ export default function Gifts() {
             Qualquer valor será muito bem-vindo!
           </p>
           <div className="bg-white rounded-2xl p-6 shadow-lg inline-block">
-            <p className="text-sm text-gray-500 mb-2">Chave PIX (Email)</p>
-            <div className="flex items-center gap-3">
-              <code className="bg-yellow-50 px-4 py-2 rounded-lg text-yellow-800 font-mono text-sm">
-                casamento.raianaeraphael@email.com
-              </code>
-              <button
-                onClick={() => navigator.clipboard.writeText('casamento.raianaeraphael@email.com')}
-                className="p-2 hover:bg-yellow-100 rounded-lg transition-colors"
-                title="Copiar"
-              >
-                <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-              </button>
-            </div>
-            <p className="text-xs text-gray-400 mt-3">Raiana & Raphael</p>
+            <p className="text-sm text-gray-500 mb-2">
+              Chave PIX {paymentInfo.pixKeyType ? `(${paymentInfo.pixKeyType})` : ''}
+            </p>
+            {paymentInfo.pixKey ? (
+              <div className="flex items-center gap-3">
+                <code className="bg-yellow-50 px-4 py-2 rounded-lg text-yellow-800 font-mono text-sm max-w-[200px] truncate">
+                  {paymentInfo.pixKey}
+                </code>
+                <button
+                  onClick={() => navigator.clipboard.writeText(paymentInfo.pixKey)}
+                  className="p-2 hover:bg-yellow-100 rounded-lg transition-colors"
+                  title="Copiar"
+                >
+                  <svg className="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">Chave PIX não configurada</p>
+            )}
+            <p className="text-xs text-gray-400 mt-3">{paymentInfo.coupleNames}</p>
           </div>
         </div>
       </section>

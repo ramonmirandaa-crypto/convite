@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { supabase } from '@/lib/supabase'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { getPaymentStatus, processWebhook, mapPaymentStatus } from '@/lib/mercadopago'
 import { decrypt } from '@/lib/crypto'
 import { sendPaymentConfirmationEmail, sendNewContributionNotification } from '@/lib/email'
@@ -14,7 +13,8 @@ const logInfo = process.env.NODE_ENV !== 'production'
 export const dynamic = 'force-dynamic'
 
 function getSupabaseServerClient() {
-  return process.env.SUPABASE_SERVICE_ROLE_KEY ? supabaseAdmin : supabase
+  // Sempre use service role para rotas server-side (evita problemas com RLS).
+  return getSupabaseAdmin()
 }
 
 function resolveSecret(mpConfig: any): string | undefined {

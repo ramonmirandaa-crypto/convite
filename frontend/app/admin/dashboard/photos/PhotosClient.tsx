@@ -21,22 +21,55 @@ interface PhotosClientProps {
 export default function PhotosClient({ initialPhotos }: PhotosClientProps) {
   const [photos, setPhotos] = useState<Photo[]>(initialPhotos)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setLoading(true)
-
-    const formData = new FormData(e.currentTarget)
-    const data = {
-      title: formData.get('title'),
-      description: formData.get('description'),
-      imageUrl: formData.get('imageUrl'),
-      category: formData.get('category'),
-      order: parseInt(formData.get('order') as string) || 0
-    }
+    setError('')
 
     try {
+      const formData = new FormData(e.currentTarget)
+      const imageFile = formData.get('imageFile')
+      const imageUrlInput = formData.get('imageUrl')
+
+      let imageUrl: string | null = null
+
+      // If a file is provided, upload it first and use the returned URL.
+      if (imageFile && typeof imageFile !== 'string' && (imageFile as File).size > 0) {
+        const uploadData = new FormData()
+        uploadData.set('file', imageFile)
+
+        const uploadRes = await fetch('/api/admin/uploads', {
+          method: 'POST',
+          body: uploadData,
+        })
+
+        const uploadJson = await uploadRes.json()
+        if (!uploadRes.ok) {
+          setError(uploadJson?.error || 'Erro ao fazer upload da imagem')
+          return
+        }
+
+        imageUrl = uploadJson?.url || null
+      } else if (typeof imageUrlInput === 'string' && imageUrlInput.trim()) {
+        imageUrl = imageUrlInput.trim()
+      }
+
+      if (!imageUrl) {
+        setError('Envie um arquivo de imagem ou informe uma URL.')
+        return
+      }
+
+      const data = {
+        title: formData.get('title'),
+        description: formData.get('description'),
+        imageUrl,
+        category: formData.get('category'),
+        order: parseInt(formData.get('order') as string) || 0,
+      }
+
       const res = await fetch('/api/admin/photos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -48,9 +81,13 @@ export default function PhotosClient({ initialPhotos }: PhotosClientProps) {
         setPhotos([{ ...newPhoto, createdAt: new Date(newPhoto.createdAt) }, ...photos])
         e.currentTarget.reset()
         router.refresh()
+      } else {
+        const err = await res.json()
+        setError(err.error || 'Erro ao adicionar foto')
       }
     } catch (error) {
       console.error('Erro ao adicionar foto:', error)
+      setError('Erro ao adicionar foto')
     } finally {
       setLoading(false)
     }
@@ -77,6 +114,12 @@ export default function PhotosClient({ initialPhotos }: PhotosClientProps) {
       {/* Add Photo Form */}
       <div className="bg-white rounded-xl shadow-sm border border-yellow-100 p-6 mb-6">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">Adicionar Nova Foto</h2>
+
+        {error && (
+          <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-4">
+            {error}
+          </div>
+        )}
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -122,17 +165,23 @@ export default function PhotosClient({ initialPhotos }: PhotosClientProps) {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              URL da Imagem *
+              Imagem (upload ou URL) *
             </label>
+            <input
+              type="file"
+              name="imageFile"
+              accept="image/*"
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-100"
+            />
+            <div className="my-2 text-center text-xs text-gray-500">ou</div>
             <input
               type="url"
               name="imageUrl"
-              required
               className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-100"
               placeholder="https://exemplo.com/foto.jpg"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Cole o link direto da imagem (ex: Imgur, Cloudinary, etc.)
+              Se você enviar um arquivo, o link acima pode ficar em branco.
             </p>
           </div>
 

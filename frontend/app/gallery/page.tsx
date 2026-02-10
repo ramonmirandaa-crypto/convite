@@ -19,32 +19,13 @@ export default function Gallery() {
   const { photos: galleryPhotos, loading: galleryLoading } = useGalleryPhotos(50)
   const { photos: couplePhotos } = useCouplePhotos(1)
 
-  // Fotos padrão de fallback
-  const fallbackPhotos = [
-    { id: '1', src: '/Fotos/IMG_0544.png', title: 'Nosso Amor', category: 'Casal' },
-    { id: '2', src: '/Fotos/IMG_0548.jpeg', title: 'Momento Especial', category: 'Ensaio' },
-    { id: '3', src: '/Fotos/IMG_0549.jpeg', title: 'Juntos Para Sempre', category: 'Casal' },
-    { id: '4', src: '/Fotos/IMG_0550.jpeg', title: 'Sorriso de Felicidade', category: 'Ensaio' },
-    { id: '5', src: '/Fotos/5e17a544-5f8d-4169-b912-6ac1de30787f.jpeg', title: 'Dia Inesquecível', category: 'Casal' },
-    { id: '6', src: '/Fotos/603d0296-8ce6-47ba-8576-05bda785aa80.jpeg', title: 'Amor Verdadeiro', category: 'Ensaio' },
-    { id: '7', src: '/Fotos/67695956-b0e1-4c97-a7ba-f37006a2a9ab.jpeg', title: 'Completude', category: 'Casal' },
-    { id: '8', src: '/Fotos/9a046fed-3acc-41c3-902e-d7e5f17fc680.jpeg', title: 'Dois Corações', category: 'Ensaio' },
-    { id: '9', src: '/Fotos/0abd5f16-6d62-47bb-a804-89a3ad11748b.jpeg', title: 'Carinho', category: 'Casal' },
-    { id: '10', src: '/Fotos/166dcb0a-2b44-4547-91c3-7f1f733a9ca6.jpeg', title: 'Ternura', category: 'Ensaio' },
-    { id: '11', src: '/Fotos/2bf3d2c2-6041-4450-8eb4-bd41cbb0e891.jpeg', title: 'Harmonia', category: 'Casal' },
-    { id: '12', src: '/Fotos/40111ddd-7108-48c6-b256-63ee117fa43e.jpeg', title: 'União', category: 'Ensaio' },
-  ]
-
-  // Converte fotos do painel para o formato usado
-  const photosFromPanel: Photo[] = galleryPhotos.map(p => ({
+  // Fotos vindas do painel de controle
+  const photos: Photo[] = galleryPhotos.map(p => ({
     id: p.id,
     src: p.imageUrl,
     title: p.title,
     category: p.category === 'couple' ? 'Casal' : 'Ensaio'
   }))
-
-  // Usa fotos do painel ou fallback
-  const photos = galleryPhotos.length > 0 ? photosFromPanel : fallbackPhotos
 
   const categories = ['Todas', ...Array.from(new Set(photos.map(p => p.category)))]
   
@@ -52,9 +33,7 @@ export default function Gallery() {
     ? photos 
     : photos.filter(p => p.category === filter)
 
-  const headerImage = couplePhotos.length > 0 
-    ? couplePhotos[0].imageUrl 
-    : '/Fotos/IMG_0549.jpeg'
+  const headerImage = couplePhotos.length > 0 ? couplePhotos[0].imageUrl : null
 
   return (
     <main className="min-h-screen bg-[#FDF8F3]">
@@ -63,13 +42,19 @@ export default function Gallery() {
       <section className="relative pt-24 pb-12 px-4">
         <div className="max-w-6xl mx-auto text-center">
           <div className="w-32 h-32 mx-auto mb-6 rounded-full overflow-hidden border-4 border-yellow-400 shadow-lg">
-            <Image
-              src={headerImage}
-              alt="Raiana e Raphael"
-              width={128}
-              height={128}
-              className="object-cover w-full h-full"
-            />
+            {headerImage ? (
+              <Image
+                src={headerImage}
+                alt="Raiana e Raphael"
+                width={128}
+                height={128}
+                className="object-cover w-full h-full"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-yellow-100 to-yellow-300 flex items-center justify-center">
+                <span className="text-4xl">💍</span>
+              </div>
+            )}
           </div>
           <p className="text-yellow-600 text-sm uppercase tracking-[0.3em] mb-4">
             Nossa História em Imagens

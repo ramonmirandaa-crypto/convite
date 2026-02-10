@@ -3,6 +3,7 @@
 import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { useCouplePhotos } from '@/lib/usePhotos'
 
 export default function AdminLogin() {
   const [username, setUsername] = useState('')
@@ -10,6 +11,10 @@ export default function AdminLogin() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+
+  // Usa as fotos do casal configuradas no painel (categoria "couple").
+  const { photos: couplePhotos } = useCouplePhotos(1)
+  const avatarUrl = couplePhotos.length > 0 ? couplePhotos[0].imageUrl : null
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -43,14 +48,20 @@ export default function AdminLogin() {
       <div className="bg-white p-8 md:p-10 rounded-2xl shadow-xl w-full max-w-md border border-yellow-100">
         <div className="text-center mb-8">
           <div className="w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden border-2 border-yellow-400 relative">
-            <Image
-              src="/Fotos/IMG_0549.jpeg"
-              alt="Raiana e Raphael"
-              fill
-              className="object-cover"
-              sizes="80px"
-              priority
-            />
+            {avatarUrl ? (
+              <Image
+                src={avatarUrl}
+                alt="Raiana e Raphael"
+                fill
+                className="object-cover"
+                sizes="80px"
+                priority
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-yellow-100 to-yellow-300 flex items-center justify-center">
+                <span className="text-3xl">💍</span>
+              </div>
+            )}
           </div>
           <h1 className="text-2xl font-serif text-gradient-gold mb-2">Área Administrativa</h1>
           <p className="text-gray-500 text-sm">Raiana & Raphael - 16/05/2026</p>

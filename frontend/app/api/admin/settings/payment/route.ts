@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { supabase } from '@/lib/supabase'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { adminAuth } from '@/lib/adminAuth'
 import { encrypt, decrypt } from '@/lib/crypto'
 
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   try {
     let event
     if (isVercel) {
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await getSupabaseAdmin()
         .from('events')
         .select('pixKey, pixKeyType, mpConfig')
         .single()
@@ -108,7 +108,7 @@ export async function POST(request: NextRequest) {
     // Busca o primeiro evento
     let event
     if (isVercel) {
-      const { data, error } = await supabaseAdmin.from('events').select('id, mpConfig').single()
+      const { data, error } = await getSupabaseAdmin().from('events').select('id, mpConfig').single()
       if (error) throw error
       event = data
     } else {
@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
     if (isVercel) {
       updateData.updatedAt = new Date().toISOString()
       // Usa service role key para bypass do RLS
-      const { error } = await supabaseAdmin
+      const { error } = await getSupabaseAdmin()
         .from('events')
         .update(updateData)
         .eq('id', event.id)

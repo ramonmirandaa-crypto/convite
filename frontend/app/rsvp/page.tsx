@@ -4,8 +4,12 @@ import { useState } from 'react'
 import { createRSVP } from '@/lib/api'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useCouplePhotos } from '@/lib/usePhotos'
 
 export default function RSVP() {
+  const { photos: couplePhotos } = useCouplePhotos(1)
+  const headerImage = couplePhotos.length > 0 ? couplePhotos[0].imageUrl : null
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -89,18 +93,26 @@ export default function RSVP() {
     <main className="min-h-screen bg-[#FDF8F3]">
       {/* Header */}
       <section className="relative pt-24 pb-12 px-4">
-        <div className="absolute inset-0 bg-[url('/Fotos/IMG_0548.jpeg')] bg-cover bg-center opacity-5" />
+        {headerImage && (
+          <div className="absolute inset-0 bg-cover bg-center opacity-5" style={{ backgroundImage: `url(${headerImage})` }} />
+        )}
         <div className="absolute inset-0 bg-gradient-to-b from-[#FDF8F3] via-[#FDF8F3]/95 to-[#FDF8F3]" />
-        
+
         <div className="relative z-10 max-w-2xl mx-auto text-center">
           <div className="w-32 h-32 mx-auto mb-6 rounded-full overflow-hidden border-4 border-yellow-400 shadow-lg">
-            <Image
-              src="/Fotos/IMG_0549.jpeg"
-              alt="Raiana e Raphael"
-              width={128}
-              height={128}
-              className="object-cover w-full h-full"
-            />
+            {headerImage ? (
+              <Image
+                src={headerImage}
+                alt="Raiana e Raphael"
+                width={128}
+                height={128}
+                className="object-cover w-full h-full"
+              />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-yellow-100 to-yellow-300 flex items-center justify-center">
+                <span className="text-4xl">💍</span>
+              </div>
+            )}
           </div>
           <p className="text-yellow-600 text-sm uppercase tracking-[0.3em] mb-4">
             Confirme sua Presença

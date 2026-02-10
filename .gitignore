@@ -12,6 +12,9 @@ out/
 build/
 dist/
 
+# Local uploads (generated at runtime)
+frontend/public/uploads/
+
 # Production
 *.log
 npm-debug.log*

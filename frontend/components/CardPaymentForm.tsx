@@ -11,7 +11,7 @@ import {
 interface CardPaymentFormProps {
   publicKey: string
   amount: number
-  onSubmit: (cardToken: string, paymentMethodId: string, installments: number) => void
+  onSubmit: (cardToken: string, paymentMethodId: string, installments: number, issuerId?: string) => void
   onError: (error: string) => void
 }
 
@@ -172,7 +172,19 @@ export default function CardPaymentForm({
       })
 
       if (cardToken) {
-        onSubmit(cardToken, paymentMethodId, installments)
+        // Resolve issuerId do MP (necessário para alguns cartões)
+        let resolvedIssuerId: string | undefined
+        try {
+          if (mp && paymentMethodId && bin.length >= 6) {
+            const issuers = await mp.getIssuers({ paymentMethodId, bin })
+            if (issuers && issuers.length > 0) {
+              resolvedIssuerId = String(issuers[0].id)
+            }
+          }
+        } catch {
+          // issuerId opcional - segue sem ele
+        }
+        onSubmit(cardToken, paymentMethodId, installments, resolvedIssuerId)
       } else {
         onError('Erro ao gerar token do cartão')
       }

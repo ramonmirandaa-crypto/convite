@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { adminAuth } from '@/lib/adminAuth'
 import { createGiftSchema } from '@/lib/validation'
 import { z } from 'zod'
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
   try {
     let gifts
     if (isVercel) {
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await getSupabaseAdmin()
         .from('gifts')
         .select('*, contributions(*)')
         .order('createdAt', { ascending: false })
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     let targetEventId = eventId
     if (!targetEventId) {
       if (isVercel) {
-        const { data, error } = await supabaseAdmin.from('events').select('id').single()
+        const { data, error } = await getSupabaseAdmin().from('events').select('id').single()
         if (error || !data?.id) {
           return NextResponse.json(
             { error: 'Nenhum evento encontrado. Crie um evento primeiro.' },
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
 
     let gift: any
     if (isVercel) {
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await getSupabaseAdmin()
         .from('gifts')
         .insert({
           id: randomUUID(),

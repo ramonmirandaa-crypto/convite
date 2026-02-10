@@ -13,16 +13,44 @@ export default function NewGiftPage() {
     setLoading(true)
     setError('')
 
-    const formData = new FormData(e.currentTarget)
-    const data = {
-      title: formData.get('title'),
-      description: formData.get('description'),
-      totalValue: parseFloat(formData.get('totalValue') as string),
-      imageUrl: formData.get('imageUrl'),
-      status: formData.get('status')
-    }
-
     try {
+      const formData = new FormData(e.currentTarget)
+
+      const imageFile = formData.get('imageFile')
+      const imageUrlInput = formData.get('imageUrl')
+
+      let imageUrl: string | undefined = undefined
+
+      if (imageFile && typeof imageFile !== 'string' && (imageFile as File).size > 0) {
+        const uploadData = new FormData()
+        uploadData.set('file', imageFile)
+
+        const uploadRes = await fetch('/api/admin/uploads', {
+          method: 'POST',
+          body: uploadData,
+        })
+
+        const uploadJson = await uploadRes.json()
+        if (!uploadRes.ok) {
+          setError(uploadJson?.error || 'Erro ao fazer upload da imagem')
+          return
+        }
+
+        if (typeof uploadJson?.url === 'string' && uploadJson.url) {
+          imageUrl = uploadJson.url
+        }
+      } else if (typeof imageUrlInput === 'string' && imageUrlInput.trim()) {
+        imageUrl = imageUrlInput.trim()
+      }
+
+      const data = {
+        title: formData.get('title'),
+        description: formData.get('description'),
+        totalValue: parseFloat(formData.get('totalValue') as string),
+        imageUrl,
+        status: formData.get('status')
+      }
+
       const res = await fetch('/api/admin/gifts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -120,8 +148,15 @@ export default function NewGiftPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              URL da Imagem
+              Imagem (upload ou URL)
             </label>
+            <input
+              type="file"
+              name="imageFile"
+              accept="image/*"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent outline-none"
+            />
+            <div className="my-2 text-center text-xs text-gray-500">ou</div>
             <input
               type="url"
               name="imageUrl"
@@ -129,7 +164,7 @@ export default function NewGiftPage() {
               placeholder="https://exemplo.com/imagem.jpg"
             />
             <p className="text-xs text-gray-500 mt-1">
-              Cole o link de uma imagem ou deixe em branco
+              Se você enviar um arquivo, o link acima pode ficar em branco.
             </p>
           </div>
 

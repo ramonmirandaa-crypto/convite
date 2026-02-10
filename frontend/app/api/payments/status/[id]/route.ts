@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { supabase } from '@/lib/supabase'
-import { supabaseAdmin } from '@/lib/supabase-admin'
+import { getSupabaseAdmin } from '@/lib/supabase-admin'
 import { getPaymentStatus, mapPaymentStatus } from '@/lib/mercadopago'
 import { decrypt } from '@/lib/crypto'
 
 const isVercel = process.env.VERCEL === '1'
 
 function getSupabaseServerClient() {
-  return process.env.SUPABASE_SERVICE_ROLE_KEY ? supabaseAdmin : supabase
+  // Sempre use service role para rotas server-side (evita problemas com RLS).
+  return getSupabaseAdmin()
 }
 
 function resolveAccessToken(mpConfig: any): string | undefined {
