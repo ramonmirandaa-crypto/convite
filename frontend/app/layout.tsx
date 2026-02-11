@@ -28,11 +28,21 @@ export const metadata: Metadata = {
     url: 'https://weending.vercel.app',
     siteName: 'Raiana & Raphael - Casamento',
     locale: 'pt_BR',
+    images: [
+      {
+        url: 'https://weending.vercel.app/og-image.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'Raiana e Raphael - Convite de Casamento',
+        type: 'image/jpeg',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Raiana & Raphael - Convite de Casamento',
     description: 'Você está convidado para celebrar nosso amor em um dia especial. 16 de Maio de 2026.',
+    images: ['https://weending.vercel.app/og-image.jpg'],
   },
   icons: {
     icon: '/favicon.ico',
