@@ -10,16 +10,26 @@ function toCents(value: number): number {
   return Math.round((Number(value) || 0) * 100)
 }
 
+// Helper para pegar o ID da URL
+function getIdFromUrl(request: NextRequest): string | null {
+  const url = new URL(request.url)
+  const pathParts = url.pathname.split('/')
+  return pathParts[pathParts.length - 1] || null
+}
+
 // GET - Buscar presente (admin)
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest) {
   const auth = adminAuth(request)
   if (!auth.success) return auth.response!
 
   try {
-    const { id } = await params
+    const id = getIdFromUrl(request)
+    if (!id) {
+      return NextResponse.json({ error: 'ID do presente não fornecido' }, { status: 400 })
+    }
+
+    console.log('[API Gifts GET] Fetching gift:', id, 'isVercel:', isVercel)
+
     if (isVercel) {
       const { data, error } = await getSupabaseAdmin()
         .from('gifts')
@@ -27,10 +37,25 @@ export async function GET(
         .eq('id', id)
         .single()
 
-      if (error || !data) {
+      if (error) {
+        console.error('[API Gifts GET] Supabase error:', error)
+        // Se for erro de "não encontrado", retorna 404
+        if (error.code === 'PGRST116') {
+          return NextResponse.json({ error: 'Presente não encontrado' }, { status: 404 })
+        }
+        // Outros erros do Supabase
+        return NextResponse.json({ 
+          error: 'Erro ao buscar presente', 
+          details: error.message,
+          code: error.code 
+        }, { status: 500 })
+      }
+
+      if (!data) {
         return NextResponse.json({ error: 'Presente não encontrado' }, { status: 404 })
       }
 
+      console.log('[API Gifts GET] Gift found:', data.id)
       return NextResponse.json({ gift: data })
     }
 
@@ -50,15 +75,16 @@ export async function GET(
 }
 
 // PUT - Atualizar presente (admin)
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(request: NextRequest) {
   const auth = adminAuth(request)
   if (!auth.success) return auth.response!
 
   try {
-    const { id } = await params
+    const id = getIdFromUrl(request)
+    if (!id) {
+      return NextResponse.json({ error: 'ID do presente não fornecido' }, { status: 400 })
+    }
+
     const body = await request.json()
     const normalized = {
       ...body,

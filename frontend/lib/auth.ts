@@ -2,13 +2,14 @@ import { cookies } from 'next/headers'
 
 const ADMIN_TOKEN = 'admin_token'
 
-export function isAuthenticated(): boolean {
-  const cookieStore = cookies()
+export async function isAuthenticated(): Promise<boolean> {
+  const cookieStore = await cookies()
   return cookieStore.has(ADMIN_TOKEN)
 }
 
-export function setAdminToken() {
-  cookies().set(ADMIN_TOKEN, 'authenticated', {
+export async function setAdminToken() {
+  const cookieStore = await cookies()
+  cookieStore.set(ADMIN_TOKEN, 'authenticated', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict',
@@ -17,6 +18,7 @@ export function setAdminToken() {
   })
 }
 
-export function removeAdminToken() {
-  cookies().delete(ADMIN_TOKEN)
+export async function removeAdminToken() {
+  const cookieStore = await cookies()
+  cookieStore.delete(ADMIN_TOKEN)
 }

@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     const adminPassword = process.env.ADMIN_PASSWORD || 'admin123'
 
     if (username === adminUser && password === adminPassword) {
-      setAdminToken()
+      await setAdminToken()
       return NextResponse.json({ success: true })
     }
 

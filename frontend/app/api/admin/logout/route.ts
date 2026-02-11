@@ -2,6 +2,6 @@ import { NextResponse } from 'next/server'
 import { removeAdminToken } from '@/lib/auth'
 
 export async function POST() {
-  removeAdminToken()
+  await removeAdminToken()
   return NextResponse.json({ success: true })
 }

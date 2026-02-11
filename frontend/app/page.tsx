@@ -127,13 +127,17 @@ function HeroSection({ eventDate }: { eventDate: string }) {
                     <div className="w-10 h-10 border-2 border-yellow-400 border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : mainPhotos.length > 0 ? (
-                  <Image
-                    src={mainPhotos[currentPhoto]}
-                    alt="Raiana e Raphael"
-                    fill
-                    className="object-cover transition-opacity duration-1000"
-                    priority
-                  />
+                  <div className="w-full h-full relative">
+                    <Image
+                      src={mainPhotos[currentPhoto]}
+                      alt="Raiana e Raphael"
+                      fill
+                      className="object-cover object-top transition-opacity duration-1000"
+                      style={{ objectPosition: 'center 20%' }}
+                      priority
+                      sizes="(max-width: 768px) 256px, (max-width: 1024px) 320px, 384px"
+                    />
+                  </div>
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-yellow-100 to-yellow-300 flex items-center justify-center">
                     <span className="text-6xl">💍</span>
@@ -163,21 +167,43 @@ function HeroSection({ eventDate }: { eventDate: string }) {
           </div>
 
           {/* Nomes - Lado Direito */}
-          <div className="text-center lg:text-left fade-in-up fade-in-up-delay-2">
-            <h1 className="flex flex-col lg:items-start">
-              <span className="text-5xl md:text-6xl lg:text-8xl font-serif text-gradient-gold mb-2">
+          <div className="text-center fade-in-up fade-in-up-delay-2">
+            {/* Pais dos noivos */}
+            <div className="mb-6">
+              <p className="text-yellow-700/80 text-sm uppercase tracking-widest mb-4">
+                Com a bênção de Deus de seus pais
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-sm text-gray-600 max-w-2xl mx-auto">
+                <div className="text-center">
+                  <p>Solange Aparicida Miranda Assumpção</p>
+                  <p>e José dos Santos Assumpção</p>
+                </div>
+                <div className="text-center">
+                  <p>Maria José Alves Perino dos Santos</p>
+                  <p>e Marco Aurélio dos Santos</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Nomes dos noivos lado a lado */}
+            <h1 className="flex items-center justify-center gap-3 md:gap-6 mb-4">
+              <span className="text-4xl md:text-6xl lg:text-7xl font-serif text-gradient-gold">
                 Raiana
               </span>
-              <span className="text-3xl md:text-4xl lg:text-5xl font-serif text-yellow-600/60 italic my-1 lg:my-2">
+              <span className="text-2xl md:text-4xl lg:text-5xl font-serif text-yellow-600/60 italic">
                 &
               </span>
-              <span className="text-5xl md:text-6xl lg:text-8xl font-serif text-gradient-gold">
+              <span className="text-4xl md:text-6xl lg:text-7xl font-serif text-gradient-gold">
                 Raphael
               </span>
             </h1>
+
+            <p className="text-yellow-700/80 text-sm uppercase tracking-widest mb-6">
+              Convidam para a cerimônia
+            </p>
             
             {/* Frase */}
-            <p className="text-lg md:text-xl text-gray-600 max-w-md mt-6 font-light italic">
+            <p className="text-lg md:text-xl text-gray-600 max-w-md font-light italic mx-auto">
               &ldquo;Duas almas, um só coração. Um amor que transcende o tempo.&rdquo;
             </p>
           </div>
@@ -508,7 +534,6 @@ function Footer({ eventDate, venue }: { eventDate: string; venue: string }) {
           <Link href="/rsvp" className="hover:text-yellow-600 transition-colors">RSVP</Link>
           <Link href="/gifts" className="hover:text-yellow-600 transition-colors">Presentes</Link>
           <Link href="/gallery" className="hover:text-yellow-600 transition-colors">Galeria</Link>
-          <Link href="/contact" className="hover:text-yellow-600 transition-colors">Contato</Link>
         </div>
         <p className="text-gray-300 text-xs mt-8">
           Com amor, Raiana & Raphael ❤️

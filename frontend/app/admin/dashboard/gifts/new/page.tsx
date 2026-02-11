@@ -86,8 +86,20 @@ export default function NewGiftPage() {
 
       <div className="bg-white rounded-xl shadow-sm p-6 max-w-2xl">
         {error && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-6">
-            {error}
+          <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg mb-6">
+            <div className="flex items-start gap-3">
+              <span className="text-xl">⚠️</span>
+              <div>
+                <p className="font-medium">{error}</p>
+                {error.includes('storage') || error.includes('bucket') || error.includes('Storage') ? (
+                  <p className="text-sm mt-2 text-red-600">
+                    📖 <a href="/SETUP-STORAGE.md" target="_blank" className="underline hover:text-red-800">
+                      Clique aqui para ver como configurar o Storage
+                    </a>
+                  </p>
+                ) : null}
+              </div>
+            </div>
           </div>
         )}
 

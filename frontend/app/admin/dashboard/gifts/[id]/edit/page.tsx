@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 
 type Gift = {
   id: string
@@ -17,8 +17,11 @@ function toCents(value: number): number {
   return Math.round((Number(value) || 0) * 100)
 }
 
-export default function EditGiftPage({ params }: { params: { id: string } }) {
+export default function EditGiftPage() {
   const router = useRouter()
+  const params = useParams()
+  const giftId = params?.id as string
+  
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -34,17 +37,27 @@ export default function EditGiftPage({ params }: { params: { id: string } }) {
   const [imageFile, setImageFile] = useState<File | null>(null)
 
   useEffect(() => {
+    if (!giftId) {
+      setError('ID do presente não fornecido')
+      setLoading(false)
+      return
+    }
+
     let cancelled = false
 
     async function load() {
       try {
         setLoading(true)
         setError('')
-        const res = await fetch(`/api/admin/gifts/${params.id}`)
+        
+        console.log('[EditGift] Fetching gift:', giftId)
+        const res = await fetch(`/api/admin/gifts/${giftId}`)
         const data = await res.json().catch(() => ({}))
 
+        console.log('[EditGift] Response:', res.status, data)
+
         if (!res.ok) {
-          throw new Error(data.error || 'Erro ao carregar presente')
+          throw new Error(data.error || data.details || `Erro ${res.status}: ${res.statusText}`)
         }
 
         const g: Gift = data.gift
@@ -58,6 +71,7 @@ export default function EditGiftPage({ params }: { params: { id: string } }) {
         setStatus((g.status === 'hidden' ? 'hidden' : 'available') as any)
         setImageUrl(g.imageUrl || '')
       } catch (e: any) {
+        console.error('[EditGift] Error:', e)
         if (!cancelled) setError(e?.message || 'Erro ao carregar presente')
       } finally {
         if (!cancelled) setLoading(false)
@@ -68,7 +82,7 @@ export default function EditGiftPage({ params }: { params: { id: string } }) {
     return () => {
       cancelled = true
     }
-  }, [params.id])
+  }, [giftId])
 
   const quotaPreview = useMemo(() => {
     const total = Number(totalValue)
@@ -81,6 +95,8 @@ export default function EditGiftPage({ params }: { params: { id: string } }) {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+    if (!giftId) return
+    
     setSaving(true)
     setError('')
 
@@ -118,7 +134,7 @@ export default function EditGiftPage({ params }: { params: { id: string } }) {
         status,
       }
 
-      const res = await fetch(`/api/admin/gifts/${params.id}`, {
+      const res = await fetch(`/api/admin/gifts/${giftId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -150,9 +166,24 @@ export default function EditGiftPage({ params }: { params: { id: string } }) {
     return (
       <div className="bg-red-50 border border-red-200 rounded-xl p-8 text-center">
         <h2 className="text-xl font-semibold text-red-700 mb-2">Presente não encontrado</h2>
-        <a href="/admin/dashboard/gifts" className="text-red-700 underline">
-          Voltar
-        </a>
+        <p className="text-gray-600 mb-4">ID: {giftId || 'não informado'}</p>
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 rounded text-red-800 text-sm max-w-md mx-auto">
+            <p className="font-medium">Detalhes do erro:</p>
+            <p className="font-mono text-xs mt-1">{error}</p>
+          </div>
+        )}
+        <div className="flex gap-4 justify-center">
+          <a href="/admin/dashboard/gifts" className="text-red-700 underline">
+            ← Voltar para lista
+          </a>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="text-red-700 underline"
+          >
+            🔄 Tentar novamente
+          </button>
+        </div>
       </div>
     )
   }
@@ -168,8 +199,18 @@ export default function EditGiftPage({ params }: { params: { id: string } }) {
 
       <div className="bg-white rounded-xl shadow-sm p-6 max-w-2xl">
         {error && (
-          <div className="bg-red-50 text-red-600 p-4 rounded-lg mb-6">
-            {error}
+          <div className="bg-red-50 border border-red-200 text-red-700 p-4 rounded-lg mb-6">
+            <div className="flex items-start gap-3">
+              <span className="text-xl">⚠️</span>
+              <div>
+                <p className="font-medium">{error}</p>
+                {error.includes('storage') || error.includes('bucket') || error.includes('Storage') ? (
+                  <p className="text-sm mt-2 text-red-600">
+                    📖 Leia o arquivo <code className="bg-red-100 px-1 rounded">SETUP-STORAGE.md</code> para instruções de como configurar o Storage no Supabase.
+                  </p>
+                ) : null}
+              </div>
+            </div>
           </div>
         )}
 
@@ -293,4 +334,3 @@ export default function EditGiftPage({ params }: { params: { id: string } }) {
     </div>
   )
 }
-

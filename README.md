@@ -59,6 +59,10 @@ Este sistema foi desenvolvido para facilitar o gerenciamento de convites de casa
 - **SGBD**: PostgreSQL
 - **ORM**: Prisma
 
+### Storage
+- **Supabase Storage** (para upload de imagens)
+- Bucket público: `photos`
+
 ## 📁 Estrutura do Projeto
 
 ```
@@ -268,6 +272,28 @@ ADMIN_PASSWORD="sua-senha-segura"
 ```
 
 **Nota:** Para PostgreSQL gratuito, recomendamos [Supabase](https://supabase.com) ou [Neon](https://neon.tech).
+
+---
+
+## 📸 Upload de Imagens
+
+O sistema agora **configura automaticamente** o Supabase Storage quando você faz o primeiro upload! 
+
+### ✅ Configuração Automática
+
+1. Tente adicionar uma imagem a um presente
+2. O sistema detecta que o bucket não existe e cria automaticamente
+3. Pronto! O upload é completado
+
+Se a configuração automática falhar:
+1. Acesse `/admin/dashboard/diagnostic`
+2. Clique em **"Configurar Storage Automaticamente"**
+3. Ou siga o guia manual em: **[SETUP-STORAGE.md](./SETUP-STORAGE.md)**
+
+### Alternativa sem Storage:
+Use URLs de imagens externas (Imgur, Cloudinary, etc.) no campo "URL da imagem".
+
+---
 
 ## 📚 Documentação
 
