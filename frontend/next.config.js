@@ -2,15 +2,12 @@
 const nextConfig = {
   images: {
     unoptimized: true,
-    // `images.domains` nao suporta wildcard de forma confiavel.
-    // `remotePatterns` cobre URLs do Supabase Storage (e opcionalmente Vercel preview domains).
     remotePatterns: [
       {
         protocol: 'https',
         hostname: '**.supabase.co',
         pathname: '/storage/v1/object/public/**',
       },
-      // Caso use URLs assinadas em algum momento.
       {
         protocol: 'https',
         hostname: '**.supabase.co',
@@ -23,13 +20,38 @@ const nextConfig = {
       },
     ],
   },
-  // Mantemos `npm run lint` como checagem manual, mas não bloqueamos o build.
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Configuração para Serverless Functions na Vercel
   experimental: {
     serverComponentsExternalPackages: ['@prisma/client'],
+  },
+  // Headers para garantir que o OG image seja acessível
+  async headers() {
+    return [
+      {
+        source: '/og-image.png',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=86400, immutable',
+          },
+          {
+            key: 'Content-Type',
+            value: 'image/png',
+          },
+        ],
+      },
+      {
+        source: '/:path*',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'SAMEORIGIN',
+          },
+        ],
+      },
+    ]
   },
 }
 

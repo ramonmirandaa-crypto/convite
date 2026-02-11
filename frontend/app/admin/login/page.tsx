@@ -4,6 +4,7 @@ import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { useCouplePhotos } from '@/lib/usePhotos'
+import { FloralDivider, FloralCorner } from '../../components/FloralElements'
 
 export default function AdminLogin() {
   const [username, setUsername] = useState('')
@@ -12,7 +13,6 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
 
-  // Usa as fotos do casal configuradas no painel (categoria "couple").
   const { photos: couplePhotos } = useCouplePhotos(1)
   const avatarUrl = couplePhotos.length > 0 ? couplePhotos[0].imageUrl : null
 
@@ -44,10 +44,24 @@ export default function AdminLogin() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#FDF8F3] p-4">
-      <div className="bg-white p-8 md:p-10 rounded-2xl shadow-xl w-full max-w-md border border-yellow-100">
+    <div className="min-h-screen flex items-center justify-center bg-[#F8F4ED] p-4 relative overflow-hidden">
+      {/* Decorative corners */}
+      <div className="absolute top-4 left-4 opacity-30">
+        <FloralCorner position="top-left" />
+      </div>
+      <div className="absolute top-4 right-4 opacity-30">
+        <FloralCorner position="top-right" />
+      </div>
+      <div className="absolute bottom-4 left-4 opacity-30">
+        <FloralCorner position="bottom-left" />
+      </div>
+      <div className="absolute bottom-4 right-4 opacity-30">
+        <FloralCorner position="bottom-right" />
+      </div>
+
+      <div className="bg-[#FFFCF8] p-8 md:p-10 rounded-2xl shadow-xl w-full max-w-md border border-[#D4653C]/10 relative z-10">
         <div className="text-center mb-8">
-          <div className="w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden border-2 border-yellow-400 relative">
+          <div className="w-20 h-20 mx-auto mb-4 rounded-full overflow-hidden border-2 border-[#D4653C]/30 relative">
             {avatarUrl ? (
               <Image
                 src={avatarUrl}
@@ -58,18 +72,20 @@ export default function AdminLogin() {
                 priority
               />
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-yellow-100 to-yellow-300 flex items-center justify-center">
+              <div className="w-full h-full bg-gradient-to-br from-[#F8F4ED] to-[#FDF9F3] flex items-center justify-center">
                 <span className="text-3xl">💍</span>
               </div>
             )}
           </div>
-          <h1 className="text-2xl font-serif text-gradient-gold mb-2">Área Administrativa</h1>
-          <p className="text-gray-500 text-sm">Raiana & Raphael - 16/05/2026</p>
+          <h1 className="text-2xl font-serif text-gradient-warm mb-2">Área Administrativa</h1>
+          <p className="text-[#6B5D4D] text-sm font-serif">Raiana & Raphael - 16/05/2026</p>
+          
+          <FloralDivider className="mt-4" />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="username" className="block text-sm font-medium text-[#3D3429] mb-2 font-serif">
               Usuário
             </label>
             <input
@@ -77,7 +93,7 @@ export default function AdminLogin() {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-100 transition-all"
+              className="w-full px-4 py-3 bg-[#F8F4ED] border border-[#D4653C]/20 rounded-xl text-[#3D3429] placeholder-[#9B8B7A] focus:border-[#D4653C] focus:outline-none focus:ring-2 focus:ring-[#D4653C]/10 transition-all font-serif"
               placeholder="admin"
               required
               autoComplete="username"
@@ -85,7 +101,7 @@ export default function AdminLogin() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="password" className="block text-sm font-medium text-[#3D3429] mb-2 font-serif">
               Senha
             </label>
             <input
@@ -93,7 +109,7 @@ export default function AdminLogin() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:border-yellow-400 focus:outline-none focus:ring-2 focus:ring-yellow-100 transition-all"
+              className="w-full px-4 py-3 bg-[#F8F4ED] border border-[#D4653C]/20 rounded-xl text-[#3D3429] placeholder-[#9B8B7A] focus:border-[#D4653C] focus:outline-none focus:ring-2 focus:ring-[#D4653C]/10 transition-all font-serif"
               placeholder="••••••"
               required
               autoComplete="current-password"
@@ -101,7 +117,7 @@ export default function AdminLogin() {
           </div>
 
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-lg text-sm text-center">
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm text-center">
               {error}
             </div>
           )}
@@ -109,15 +125,15 @@ export default function AdminLogin() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full btn-premium py-3 rounded-xl font-medium transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full btn-premium disabled:opacity-50 font-serif"
           >
             {loading ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
 
         <div className="mt-6 text-center">
-          <a href="/" className="text-gray-500 hover:text-yellow-600 text-sm transition-colors">
-            ← Voltar para o site
+          <a href="/" className="text-sm text-[#9B8B7A] hover:text-[#D4653C] transition-colors font-serif">
+            ← Voltar ao site
           </a>
         </div>
       </div>

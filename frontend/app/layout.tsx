@@ -1,16 +1,11 @@
 import type { Metadata } from 'next'
-import { Playfair_Display, Cormorant_Garamond } from 'next/font/google'
+import { Cormorant_Garamond } from 'next/font/google'
 import './globals.css'
-
-const playfair = Playfair_Display({ 
-  subsets: ['latin'],
-  variable: '--font-playfair',
-  display: 'swap',
-})
 
 const cormorant = Cormorant_Garamond({ 
   subsets: ['latin'],
-  weight: ['300', '400', '500', '600'],
+  weight: ['300', '400', '500', '600', '700'],
+  style: ['normal', 'italic'],
   variable: '--font-cormorant',
   display: 'swap',
 })
@@ -33,9 +28,9 @@ export const metadata: Metadata = {
     locale: 'pt_BR',
     images: [
       {
-        url: '/og-image.jpg',
-        width: 940,
-        height: 788,
+        url: 'https://weending.vercel.app/og-image.png',
+        width: 1536,
+        height: 1024,
         alt: 'Raiana e Raphael - Convite de Casamento',
       },
     ],
@@ -44,7 +39,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'Raiana & Raphael - Convite de Casamento',
     description: 'Você está convidado para celebrar nosso amor em um dia especial. 16 de Maio de 2026.',
-    images: ['/og-image.jpg'],
+    images: ['https://weending.vercel.app/og-image.png'],
     creator: '@raianaeraphael',
   },
   icons: {
@@ -67,7 +62,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR" className="scroll-smooth">
-      <body className={`${playfair.variable} ${cormorant.variable} font-sans antialiased bg-[#FDF8F3]`}>
+      <body className={`${cormorant.variable} font-serif antialiased bg-[#F8F4ED] text-[#3D3429]`}>
         {children}
       </body>
     </html>
