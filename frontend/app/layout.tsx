@@ -12,12 +12,14 @@ const cormorant = Cormorant_Garamond({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://weending.vercel.app'),
-  title: 'Raiana & Raphael - Convite de Casamento',
-  description: 'Com imensa alegria, convidamos você para celebrar conosco o início da nossa eternidade. Um dia de amor, união e bênçãos.',
-  keywords: ['casamento', 'Raiana', 'Raphael', 'convite', 'wedding', '16 de maio de 2026'],
+  title: {
+    default: 'Raiana & Raphael - Convite de Casamento',
+    template: '%s | Raiana & Raphael',
+  },
+  description: 'Com imensa alegria, convidamos você para celebrar conosco o início da nossa eternidade. Um dia de amor, união e bênçãos. 16 de Maio de 2026.',
+  keywords: ['casamento', 'Raiana', 'Raphael', 'convite', 'wedding', '16 de maio de 2026', 'RSVP', 'lista de presentes'],
   authors: [{ name: 'Raiana & Raphael' }],
   creator: 'Raiana & Raphael',
-  publisher: 'Raiana & Raphael',
   robots: 'index, follow',
   openGraph: {
     title: 'Raiana & Raphael - Convite de Casamento',
@@ -26,30 +28,17 @@ export const metadata: Metadata = {
     url: 'https://weending.vercel.app',
     siteName: 'Raiana & Raphael - Casamento',
     locale: 'pt_BR',
-    images: [
-      {
-        url: 'https://weending.vercel.app/og-image.png',
-        width: 1536,
-        height: 1024,
-        alt: 'Raiana e Raphael - Convite de Casamento',
-      },
-    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Raiana & Raphael - Convite de Casamento',
     description: 'Você está convidado para celebrar nosso amor em um dia especial. 16 de Maio de 2026.',
-    images: ['https://weending.vercel.app/og-image.png'],
-    creator: '@raianaeraphael',
   },
   icons: {
     icon: '/favicon.ico',
     apple: '/apple-touch-icon.png',
   },
   manifest: '/manifest.json',
-  verification: {
-    google: 'weending-verification',
-  },
   alternates: {
     canonical: 'https://weending.vercel.app',
   },
